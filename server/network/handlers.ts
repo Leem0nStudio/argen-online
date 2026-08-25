@@ -266,6 +266,24 @@ export function setupHandlers(io: GameServer) {
       }
     });
 
+    // ---- Procedural world chunk streaming ----
+    socket.on("world:request", (data) => {
+      try {
+        const wm = getWorldMap();
+        const radiusChunks = Math.max(1, Math.min(3, Math.ceil((data.radius ?? 40) / 64)));
+        const { rx: prx, ry: pry } = wm.chunkCoordsAt(data.wx, data.wy);
+        for (let ry = pry - radiusChunks; ry <= pry + radiusChunks; ry++) {
+          for (let rx = prx - radiusChunks; rx <= prx + radiusChunks; rx++) {
+            if (!wm.isChunkInBounds(rx, ry)) continue;
+            const tiles = wm.getChunkTiles(rx * 64 + 32, ry * 64 + 32);
+            socket.emit("world:chunk", { rx, ry, tiles });
+          }
+        }
+      } catch (err) {
+        console.error("[Socket] world:request failed:", err);
+      }
+    });
+
     socket.on("disconnect", () => {
       const playerId = socket.data.playerId;
       if (playerId) {

@@ -9,6 +9,7 @@ import * as PIXI from "pixi.js";
 import type { PlayerState, GroundItem, GameMap, NPCData, MonsterData } from "@shared/types";
 import { MapZone, Direction } from "@shared/types";
 import { MAPS, T, D, DECORATION_RENDER } from "@shared/maps";
+import { WT, CHUNK_SIZE } from "@shared/world-gen";
 import { ITEMS } from "@shared/items";
 import { ParticleSystem, ScreenShake, AmbientTiles, drawEnhancedCharacter, drawEnhancedMonster, drawEnhancedItem } from "./vfx";
 
@@ -51,6 +52,29 @@ const CLASS_COLORS: Record<string, number> = {
   warrior: 0xcc4444, mage: 0x4444cc, archer: 0x44aa44, paladin: 0xccaa44,
 };
 
+// Procedural world tile colors (WT ids)
+const WT_COLORS: Record<number, number> = {
+  [WT.deepOcean]: 0x0a1a3a, [WT.ocean]: 0x1a3a6a, [WT.shallowWater]: 0x2a5a8a,
+  [WT.beach]: 0xd4b865, [WT.sand]: 0xc2a645, [WT.grass]: 0x2d5a1e,
+  [WT.darkGrass]: 0x1f4a15, [WT.flowerGrass]: 0x3a7a2a, [WT.plains]: 0x4a8a3a,
+  [WT.forest]: 0x1a3a0e, [WT.denseForest]: 0x0e2a08, [WT.swamp]: 0x2a3a1a,
+  [WT.tundra]: 0x8a9aaa, [WT.savanna]: 0x8a9a3a, [WT.hills]: 0x5a6a4a,
+  [WT.rockyHills]: 0x6a5a4a, [WT.mountain]: 0x5a5a5a, [WT.highMountain]: 0x7a7a7a,
+  [WT.snowPeak]: 0xeeeeff, [WT.desert]: 0xd4aa45, [WT.jungle]: 0x0e4a0e,
+  [WT.taiga]: 0x2a4a3a, [WT.coral]: 0xffaa88, [WT.river]: 0x2a6aaa,
+  [WT.lake]: 0x1a5a8a, [WT.dirtRoad]: 0x8a7050, [WT.stoneRoad]: 0x7a7a6a,
+  [WT.townFloor]: 0x6b5b4a, [WT.wall]: 0x3a3a3a, [WT.path]: 0x8b7355,
+  [WT.bridge]: 0x8b6914, [WT.cave]: 0x2a1a1a, [WT.ruins]: 0x4a4a4a,
+  [WT.lava]: 0xcc3300, [WT.ironDeposit]: 0x8a7a6a, [WT.goldDeposit]: 0xd4aa20,
+  [WT.crystalDeposit]: 0x88aacc,
+};
+
+// World tiles that block movement
+const WT_BLOCKED = new Set<number>([
+  WT.deepOcean, WT.ocean, WT.shallowWater, WT.mountain, WT.highMountain,
+  WT.snowPeak, WT.wall, WT.lava,
+]);
+
 export class GameEngine {
   app: PIXI.Application;
   worldContainer: PIXI.Container;
@@ -66,6 +90,9 @@ export class GameEngine {
 
   camera = { x: 0, y: 0 };
   currentMap: GameMap | null = null;
+  // Procedural world mode
+  isWorldMode = false;
+  worldChunks = new Map<string, number[][]>();
   localPlayer: PlayerState | null = null;
   otherPlayers: Map<string, PIXI.Container> = new Map();
   groundItemSprites: Map<string, PIXI.Container> = new Map();
@@ -167,7 +194,7 @@ export class GameEngine {
   handleKeyUp = (e: KeyboardEvent) => this.keys.delete(e.key.toLowerCase());
 
   moveFromJoystick(dx: number, dy: number, direction: Direction) {
-    if (!this.localPlayer || !this.currentMap) return;
+    if (!this.localPlayer) return;
     const now = Date.now();
     if (now - this.lastMoveTime < this.MOVE_INTERVAL) return;
     const newX = this.localPlayer.x + dx;
@@ -260,6 +287,19 @@ export class GameEngine {
   // ---- Map ----
 
   loadMap(mapId: string) {
+    // Procedural world — tiles arrive via loadWorldChunk
+    if (mapId === "world") {
+      this.isWorldMode = true;
+      this.currentMap = null;
+      this.worldChunks.clear();
+      this.tileContainer.removeChildren();
+      this.decoContainer.removeChildren();
+      this.tileGraphics = [];
+      this.ambientTiles.clear();
+      this.onRequestChunks?.(this.localPlayer?.x ?? 2048, this.localPlayer?.y ?? 2048);
+      return;
+    }
+    this.isWorldMode = false;
     const map = MAPS[mapId];
     if (!map) {
       console.error(`[GameEngine] Map not found: ${mapId}`);
@@ -848,7 +888,8 @@ export class GameEngine {
   // ---- Update Loop ----
 
   update = () => {
-    if (this.destroyed || !this.localPlayer || !this.currentMap) return;
+    if (this.destroyed || !this.localPlayer) return;
+    if (!this.currentMap && !this.isWorldMode) return;
 
     this.animTime = Date.now();
     this.ambientTiles.update(this.animTime);
@@ -888,6 +929,16 @@ export class GameEngine {
   };
 
   canWalk(x: number, y: number): boolean {
+    if (this.isWorldMode) {
+      if (!this.localPlayer) return false;
+      const chunk = this.worldChunks.get(`${Math.floor(x / CHUNK_SIZE)},${Math.floor(y / CHUNK_SIZE)}`);
+      if (!chunk) return false; // Chunk not loaded yet
+      const lx = ((x % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+      const ly = ((y % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+      const tile = chunk[ly]?.[lx];
+      if (tile === undefined) return false;
+      return !WT_BLOCKED.has(tile);
+    }
     if (!this.currentMap) return false;
     if (x < 0 || x >= this.currentMap.width || y < 0 || y >= this.currentMap.height) return false;
     const tile = this.currentMap.tiles[y]?.[x];
@@ -895,6 +946,65 @@ export class GameEngine {
     return tile !== T.water && tile !== T.wall && tile !== T.tree &&
            tile !== T.deadTree && tile !== T.thorn && tile !== T.lava;
   }
+
+  /** Receive a procedural world chunk from the server */
+  loadWorldChunk(rx: number, ry: number, tiles: number[][]) {
+    const key = `${rx},${ry}`;
+    if (this.worldChunks.has(key)) return;
+    this.worldChunks.set(key, tiles);
+
+    const ox = rx * CHUNK_SIZE;
+    const oy = ry * CHUNK_SIZE;
+    for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+        const tileId = tiles[ly]?.[lx] ?? WT.ocean;
+        const g = new PIXI.Graphics();
+        const color = WT_COLORS[tileId] ?? 0x222222;
+        g.beginFill(color);
+        g.drawRect(0, 0, TILE_SIZE, TILE_SIZE);
+        g.endFill();
+
+        // Cheap detail overlays per biome-ish tile
+        if (tileId === WT.grass || tileId === WT.darkGrass || tileId === WT.flowerGrass || tileId === WT.plains) {
+          g.lineStyle(1, 0x3a7a2e, 0.3);
+          const wx = ox + lx, wy = oy + ly;
+          const seedCount = (wx * 7 + wy * 13) % 4;
+          for (let i = 0; i < seedCount; i++) {
+            const gx = 4 + ((wx * 17 + i * 11) % 24);
+            const gy = 4 + ((wy * 19 + i * 7) % 24);
+            g.moveTo(gx, gy + 4); g.lineTo(gx + 1, gy);
+          }
+          g.lineStyle(0);
+          if (tileId === WT.flowerGrass && (wx + wy) % 3 === 0) {
+            g.beginFill((wx % 2 === 0) ? 0xff4444 : 0xffdd44, 0.6);
+            g.drawCircle(10 + (wx * 5) % 12, 10 + (wy * 3) % 12, 2);
+            g.endFill();
+          }
+        } else if (tileId === WT.forest || tileId === WT.denseForest || tileId === WT.taiga || tileId === WT.jungle) {
+          // Simple tree canopy dot
+          g.beginFill(tileId === WT.jungle ? 0x0e6a0e : 0x2a5a18, 0.5);
+          g.drawCircle(TILE_SIZE / 2 + ((ox + lx) % 5) - 2, TILE_SIZE / 2 + ((oy + ly) % 5) - 2, 9);
+          g.endFill();
+        } else if (tileId === WT.mountain || tileId === WT.highMountain || tileId === WT.snowPeak) {
+          // Ridge highlight
+          g.lineStyle(2, 0xffffff, tileId === WT.snowPeak ? 0.35 : 0.15);
+          g.moveTo(4, TILE_SIZE - 4); g.lineTo(TILE_SIZE / 2, 4); g.lineTo(TILE_SIZE - 4, TILE_SIZE - 4);
+          g.lineStyle(0);
+        } else if (tileId === WT.dirtRoad || tileId === WT.stoneRoad || tileId === WT.path) {
+          g.beginFill(tileId === WT.stoneRoad ? 0x8a8a7a : 0x9a8060, 0.25);
+          g.drawCircle(8 + (ox * 3 + lx) % 12, 8 + (oy * 5 + ly) % 16, 2);
+          g.endFill();
+        }
+
+        g.x = (ox + lx) * TILE_SIZE;
+        g.y = (oy + ly) * TILE_SIZE;
+        this.tileContainer.addChild(g);
+        this.tileGraphics.push(g);
+      }
+    }
+  }
+
+  onRequestChunks: ((wx: number, wy: number) => void) | null = null;
 
   // ---- Local Player ----
 

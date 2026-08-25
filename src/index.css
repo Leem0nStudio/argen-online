@@ -332,3 +332,33 @@ html, body, #root {
   50% { box-shadow: 0 0 8px rgba(212, 168, 67, 0.6); }
 }
 
+/* ===================== MINIMAP ===================== */
+.minimap-container {
+  position: absolute;
+  top: calc(8px + var(--safe-top));
+  right: calc(8px + var(--safe-right));
+  background: rgba(10, 10, 15, 0.85);
+  border: 1px solid var(--border-gold);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 90;
+  pointer-events: none;
+}
+.minimap-container canvas {
+  display: block;
+  border-radius: 5px;
+}
+.minimap-label {
+  text-align: center;
+  font-size: clamp(0.55rem, 1.6vw, 0.65rem);
+  color: var(--text-gold);
+  margin-top: 2px;
+  letter-spacing: 0.5px;
+}
+@media (max-width: 767px) {
+  .minimap-container {
+    transform: scale(0.72);
+    transform-origin: top right;
+  }
+}
+

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import type { PlayerState, GroundItem, ChatMessage, ItemDef, DamageEvent, MonsterData, SkillEvent } from "@shared/types";
+import type { PlayerState, GroundItem, ChatMessage, ItemDef, DamageEvent, MonsterData, SkillEvent, WorldMetaData } from "@shared/types";
 import { MapZone, Direction, SKILLS } from "@shared/types";
 import { ITEMS } from "@shared/items";
 import { getSocket } from "../network/socket";
 import { GameEngine } from "../game/engine";
 import VirtualJoystick from "./VirtualJoystick";
+import Minimap from "./Minimap";
 import * as Audio from "../game/audio";
 
 interface Props {
@@ -56,6 +57,7 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
   const isMobile = useIsMobile();
   const [engineError, setEngineError] = useState<string | null>(null);
   const [engineReady, setEngineReady] = useState(false);
+  const [worldData, setWorldData] = useState<WorldMetaData | null>(null);
 
   const safeAreaInset = useMemo(() => ({
     top: "env(safe-area-inset-top, 0px)",
@@ -102,6 +104,7 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
           setSelectedTarget(targetId);
           getSocket().emit("combat:attack", targetId);
         };
+        engine.onRequestChunks = (wx, wy) => getSocket().emit("world:request", { wx, wy, radius: 120 });
         setEngineReady(true);
       } catch (err: any) {
         console.error("[GameScreen] Engine init failed:", err);
@@ -168,6 +171,10 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
     const onMonstersUpdate = (monsters: MonsterData[]) => {
       engineRef.current?.updateMonsters(monsters);
     };
+    const onWorldData = (data: WorldMetaData) => setWorldData(data);
+    const onWorldChunk = (data: { rx: number; ry: number; tiles: number[][] }) => {
+      engineRef.current?.loadWorldChunk(data.rx, data.ry, data.tiles);
+    };
 
     socket.on("player:update", onPlayerUpdate);
     socket.on("player:move", onPlayerMove);
@@ -181,6 +188,8 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
     socket.on("npc:interact", onNpcInteract);
     socket.on("world:state", onWorldState);
     socket.on("monsters:update", onMonstersUpdate);
+    socket.on("world:data", onWorldData);
+    socket.on("world:chunk", onWorldChunk);
 
     return () => {
       socket.off("player:update", onPlayerUpdate);
@@ -195,6 +204,8 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
       socket.off("npc:interact", onNpcInteract);
       socket.off("world:state", onWorldState);
       socket.off("monsters:update", onMonstersUpdate);
+      socket.off("world:data", onWorldData);
+      socket.off("world:chunk", onWorldChunk);
     };
   }, [player.id]);
 
@@ -296,6 +307,13 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
           {zone === MapZone.City ? "🟢 Segura" : zone === MapZone.Dungeon ? "🔴 Mazmorra" : "🔴 Peligrosa"}
         </div>
       </div>
+
+      {/* Minimap */}
+      {worldData && (
+        <div className="minimap-wrapper">
+          <Minimap world={worldData} playerPos={{ x: player.x, y: player.y }} />
+        </div>
+      )}
 
       {/* Chat */}
       <div className={`chat-panel ${chatFocused ? "chat-focused" : ""}`}>
