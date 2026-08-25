@@ -85,13 +85,11 @@ function seededRandom(seed: number): () => number {
 function simpleNoise(w: number, h: number, scale: number, seed: number): number[][] {
   const rng = seededRandom(seed);
   const grid = genGrid(w, h, 0);
-  // Generate random points
   const gw = Math.ceil(w / scale) + 2;
   const gh = Math.ceil(h / scale) + 2;
   const points: number[][] = Array.from({ length: gh }, () =>
     Array.from({ length: gw }, () => rng())
   );
-  // Bilinear interpolation
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const fx = x / scale;
@@ -117,7 +115,6 @@ function makeCity(): number[][] {
   const w = 30, h = 30;
   const tiles = genGrid(w, h, T.grass);
 
-  // Outer walls
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       if (y <= 1 || y >= h - 2 || x <= 1 || x >= w - 2) {
@@ -126,7 +123,6 @@ function makeCity(): number[][] {
     }
   }
 
-  // Main streets — cross pattern with stone path
   const midX = Math.floor(w / 2);
   const midY = Math.floor(h / 2);
   for (let x = 2; x < w - 2; x++) {
@@ -140,34 +136,26 @@ function makeCity(): number[][] {
     if (midX + 1 < w - 2) tiles[y][midX + 1] = T.stonePath;
   }
 
-  // Market square (center)
   for (let dy = -3; dy <= 3; dy++) {
     for (let dx = -3; dx <= 3; dx++) {
       tiles[midY + dy][midX + dx] = T.stonePath;
     }
   }
 
-  // Fountain in center of market
   tiles[midY][midX] = T.fountain;
 
-  // Buildings — 4 quadrants with unique shapes
   const buildings = [
-    // NW: Weapon shop & Armor shop
-    { x: 3, y: 3, w: 7, h: 5, floor: T.floor },
-    { x: 11, y: 3, w: 5, h: 5, floor: T.floor },
-    // NE: Alchemist & Guild hall
-    { x: 18, y: 3, w: 6, h: 5, floor: T.floor },
-    { x: 25, y: 3, w: 4, h: 5, floor: T.floor },
-    // SW: Inn & Blacksmith
-    { x: 3, y: 18, w: 7, h: 5, floor: T.floor },
-    { x: 11, y: 18, w: 5, h: 6, floor: T.floor },
-    // SE: Temple & Library
-    { x: 18, y: 18, w: 6, h: 6, floor: T.floor },
-    { x: 25, y: 18, w: 4, h: 5, floor: T.floor },
+    { x: 3, y: 3, w: 7, h: 5 },
+    { x: 11, y: 3, w: 5, h: 5 },
+    { x: 18, y: 3, w: 6, h: 5 },
+    { x: 25, y: 3, w: 4, h: 5 },
+    { x: 3, y: 18, w: 7, h: 5 },
+    { x: 11, y: 18, w: 5, h: 6 },
+    { x: 18, y: 18, w: 6, h: 6 },
+    { x: 25, y: 18, w: 4, h: 5 },
   ];
 
   for (const b of buildings) {
-    // Walls
     for (let dy = 0; dy < b.h; dy++) {
       for (let dx = 0; dx < b.w; dx++) {
         const ty = b.y + dy;
@@ -176,12 +164,11 @@ function makeCity(): number[][] {
           if (dy === 0 || dy === b.h - 1 || dx === 0 || dx === b.w - 1) {
             tiles[ty][tx] = T.wall;
           } else {
-            tiles[ty][tx] = b.floor;
+            tiles[ty][tx] = T.floor;
           }
         }
       }
     }
-    // Door (south side, center)
     const doorX = b.x + Math.floor(b.w / 2);
     const doorY = b.y + b.h - 1;
     if (doorY < h && doorX < w) {
@@ -189,13 +176,11 @@ function makeCity(): number[][] {
     }
   }
 
-  // Gate exits (N, S, E, W)
-  tiles[1][midX] = T.gate;       // North gate
-  tiles[h - 2][midX] = T.gate;   // South gate
-  tiles[midY][1] = T.gate;       // West gate
-  tiles[midY][w - 2] = T.gate;   // East gate
+  tiles[1][midX] = T.gate;
+  tiles[h - 2][midX] = T.gate;
+  tiles[midY][1] = T.gate;
+  tiles[midY][w - 2] = T.gate;
 
-  // Connecting paths to gates
   for (let x = midX - 1; x <= midX + 1; x++) {
     tiles[2][x] = T.stonePath;
     tiles[h - 3][x] = T.stonePath;
@@ -205,21 +190,15 @@ function makeCity(): number[][] {
     tiles[y][w - 3] = T.stonePath;
   }
 
-  // Garden patches in corners
-  const gardenFill = (bx: number, by: number, bw: number, bh: number) => {
-    for (let dy = 0; dy < bh; dy++) {
-      for (let dx = 0; dx < bw; dx++) {
-        const ty = by + dy, tx = bx + dx;
-        if (ty > 1 && ty < h - 2 && tx > 1 && tx < w - 2) {
-          tiles[ty][tx] = T.flowerGrass;
-        }
-      }
+  for (let dy = 0; dy < 3; dy++) {
+    for (let dx = 0; dx < 4; dx++) {
+      const ty = 14 + dy, tx = 3 + dx;
+      if (ty > 1 && ty < h - 2 && tx > 1 && tx < w - 2) tiles[ty][tx] = T.flowerGrass;
+      const ty2 = 14 + dy, tx2 = 23 + dx;
+      if (ty2 > 1 && ty2 < h - 2 && tx2 > 1 && tx2 < w - 2) tiles[ty2][tx2] = T.flowerGrass;
     }
-  };
-  gardenFill(3, 14, 4, 3);
-  gardenFill(23, 14, 4, 3);
+  }
 
-  // Well in NW garden area
   tiles[15][5] = T.well;
 
   return tiles;
@@ -229,13 +208,11 @@ function makeCityDecorations(): number[][] {
   const w = 30, h = 30;
   const deco = genGrid(w, h, D.none);
 
-  // Market stalls around fountain
   deco[12][13] = D.market_stall;
   deco[12][16] = D.market_stall;
   deco[17][13] = D.market_stall;
   deco[17][16] = D.market_stall;
 
-  // Torch posts along main streets
   for (let x = 4; x < 28; x += 4) {
     deco[14][x] = D.torch;
     deco[15][x] = D.torch;
@@ -245,7 +222,6 @@ function makeCityDecorations(): number[][] {
     deco[y][15] = D.torch;
   }
 
-  // Building interiors
   deco[4][4] = D.weapon_rack;
   deco[5][5] = D.anvil;
   deco[19][4] = D.barrel;
@@ -255,23 +231,19 @@ function makeCityDecorations(): number[][] {
   deco[19][20] = D.bookshelf;
   deco[20][21] = D.chest;
 
-  // Lanterns near gates
   deco[3][15] = D.lantern;
   deco[26][15] = D.lantern;
   deco[15][3] = D.lantern;
   deco[15][26] = D.lantern;
 
-  // Benches in market
   deco[13][12] = D.bench;
   deco[16][17] = D.bench;
 
-  // Flags
   deco[2][14] = D.flag;
   deco[2][15] = D.flag;
   deco[27][14] = D.flag;
   deco[27][15] = D.flag;
 
-  // Signs
   deco[3][15] = D.signpost;
   deco[26][15] = D.signpost;
 
@@ -288,7 +260,6 @@ function makeForest(): number[][] {
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const n = noise[y][x];
-
       if (n > 0.65) {
         tiles[y][x] = T.tree;
       } else if (n > 0.55) {
@@ -301,7 +272,6 @@ function makeForest(): number[][] {
     }
   }
 
-  // Main path from south (city connection) winding north
   const midX = Math.floor(w / 2);
   for (let y = h - 2; y >= 1; y--) {
     const xOff = Math.round(Math.sin(y * 0.5) * 2);
@@ -313,7 +283,6 @@ function makeForest(): number[][] {
     }
   }
 
-  // Clearing in center
   const cx = Math.floor(w / 2), cy = Math.floor(h / 2);
   for (let dy = -3; dy <= 3; dy++) {
     for (let dx = -4; dx <= 4; dx++) {
@@ -326,7 +295,6 @@ function makeForest(): number[][] {
     }
   }
 
-  // Dungeon entrance (stone platform)
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 2; dx++) {
       tiles[3 + dy][w - 5 + dx] = T.stone;
@@ -335,31 +303,12 @@ function makeForest(): number[][] {
   tiles[3][w - 4] = T.stairs;
   tiles[3][w - 3] = T.stairs;
 
-  // Connect path to dungeon
   for (let x = cx; x < w - 5; x++) {
     if (tiles[3][x] === T.tree || tiles[3][x] === T.darkGrass) {
       tiles[3][x] = T.dirt;
     }
   }
 
-  // Entry/exit markers
-  tiles[h - 2][midX] = T.signpost;
-  tiles[1][midX] = T.signpost;
-
-  // Pond in east
-  for (let dy = -2; dy <= 2; dy++) {
-    for (let dx = -3; dx <= 3; dx++) {
-      const ty = 10 + dy, tx = 28 + dx;
-      if (ty >= 0 && ty < h && tx >= 0 && tx < w && dx * dx + dy * dy <= 8) {
-        tiles[ty][tx] = T.water;
-        if (dx * dx + dy * dy <= 10 && dx * dx + dy * dy > 8) {
-          tiles[ty][tx] = T.sandBeach;
-        }
-      }
-    }
-  }
-
-  // Clear border trees so paths connect
   for (let x = 0; x < w; x++) {
     if (tiles[h - 2][x] !== T.path && tiles[h - 2][x] !== T.dirt) {
       tiles[h - 2][x] = T.darkGrass;
@@ -389,10 +338,7 @@ function makeForestDecorations(): number[][] {
     }
   }
 
-  // Campfire in clearing
   deco[Math.floor(h / 2)][Math.floor(w / 2)] = D.campfire;
-
-  // Torch near dungeon
   deco[2][w - 6] = D.torch;
   deco[4][w - 6] = D.torch;
 
@@ -411,7 +357,6 @@ function makeSwamp(): number[][] {
     for (let x = 0; x < w; x++) {
       const n = noise[y][x];
       const wn = waterNoise[y][x];
-
       if (wn > 0.6) {
         tiles[y][x] = T.water;
       } else if (wn > 0.52) {
@@ -428,7 +373,6 @@ function makeSwamp(): number[][] {
     }
   }
 
-  // Murky paths
   const midX = Math.floor(w / 2);
   for (let y = h - 2; y >= 1; y--) {
     const xOff = Math.round(Math.sin(y * 0.7) * 3);
@@ -441,7 +385,6 @@ function makeSwamp(): number[][] {
     }
   }
 
-  // Bridges over water sections
   for (let y = 0; y < h; y++) {
     if (tiles[y][midX] === T.water || tiles[y][midX + 1] === T.water) {
       tiles[y][midX] = T.bridge;
@@ -449,7 +392,6 @@ function makeSwamp(): number[][] {
     }
   }
 
-  // Small islands with dead trees
   const islands = [[8, 6], [25, 10], [12, 15], [28, 18]];
   for (const [ix, iy] of islands) {
     if (iy >= 0 && iy < h && ix >= 0 && ix < w) {
@@ -465,11 +407,6 @@ function makeSwamp(): number[][] {
     }
   }
 
-  // Entry markers
-  tiles[h - 2][midX] = D.signpost as unknown as number;
-  tiles[1][midX] = D.signpost as unknown as number;
-
-  // Clear entry/exit
   tiles[h - 2][midX] = T.dirt;
   tiles[1][midX] = T.dirt;
 
@@ -506,9 +443,8 @@ function makeHills(): number[][] {
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const n = noise[y][x];
-
       if (n > 0.72) {
-        tiles[y][x] = T.wall;  // cliff face
+        tiles[y][x] = T.wall;
       } else if (n > 0.6) {
         tiles[y][x] = T.rocky;
       } else if (n > 0.5) {
@@ -516,12 +452,11 @@ function makeHills(): number[][] {
       } else if (n < 0.3) {
         tiles[y][x] = T.darkGrass;
       } else if (n < 0.2) {
-        tiles[y][x] = T.water; // small mountain pools
+        tiles[y][x] = T.water;
       }
     }
   }
 
-  // Winding mountain path
   const midX = Math.floor(w / 2);
   for (let y = h - 2; y >= 1; y--) {
     const xOff = Math.round(Math.sin(y * 0.4) * 3 + Math.cos(y * 0.8) * 1.5);
@@ -531,7 +466,6 @@ function makeHills(): number[][] {
     if (px < w - 2) tiles[y][px + 1] = T.dirt;
   }
 
-  // Mountain pass clearing
   const passY = Math.floor(h / 2);
   for (let dx = -3; dx <= 3; dx++) {
     const px = midX + dx;
@@ -542,11 +476,9 @@ function makeHills(): number[][] {
     }
   }
 
-  // Entry/exit
   tiles[h - 2][midX] = T.stonePath;
   tiles[1][midX] = T.stonePath;
 
-  // Clear cliff walls on paths
   for (let y = 0; y < h; y++) {
     if (tiles[y][midX] === T.wall || tiles[y][midX] === T.rocky) {
       tiles[y][midX] = T.stonePath;
@@ -569,7 +501,6 @@ function makeHillsDecorations(): number[][] {
     }
   }
 
-  // Torch in mountain pass
   deco[Math.floor(h / 2) - 1][Math.floor(w / 2) - 1] = D.torch;
   deco[Math.floor(h / 2) + 1][Math.floor(w / 2) + 1] = D.torch;
 
@@ -586,7 +517,6 @@ function makePlains(): number[][] {
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const n = noise[y][x];
-
       if (n > 0.7) {
         tiles[y][x] = T.flowerGrass;
       } else if (n > 0.6) {
@@ -595,13 +525,11 @@ function makePlains(): number[][] {
         tiles[y][x] = T.sand;
       } else if (n < 0.22) {
         tiles[y][x] = T.water;
-        // Beach ring
         if (n > 0.18) tiles[y][x] = T.sandBeach;
       }
     }
   }
 
-  // Wide dirt road from west (city) eastward
   const midY = Math.floor(h / 2);
   for (let x = 1; x < w - 1; x++) {
     tiles[midY][x] = T.dirt;
@@ -609,7 +537,6 @@ function makePlains(): number[][] {
     if (midY < h - 1) tiles[midY + 1][x] = T.dirt;
   }
 
-  // Scattered tree groves
   const groves = [[5, 8], [18, 12], [8, 22], [20, 22]];
   for (const [gx, gy] of groves) {
     for (let dy = -2; dy <= 2; dy++) {
@@ -624,7 +551,6 @@ function makePlains(): number[][] {
     }
   }
 
-  // Pond
   for (let dy = -2; dy <= 2; dy++) {
     for (let dx = -3; dx <= 3; dx++) {
       const ty = 8 + dy, tx = 12 + dx;
@@ -637,7 +563,6 @@ function makePlains(): number[][] {
     }
   }
 
-  // Entry/exit
   tiles[midY][1] = T.dirt;
   tiles[midY][w - 2] = T.dirt;
 
@@ -660,10 +585,7 @@ function makePlainsDecorations(): number[][] {
     }
   }
 
-  // Campfire near pond
   deco[6][11] = D.campfire;
-
-  // Signpost at entry
   deco[Math.floor(h / 2) - 1][2] = D.signpost;
 
   return deco;
@@ -675,7 +597,6 @@ function makeDungeonEntrance(): number[][] {
   const w = 22, h = 22;
   const tiles = genGrid(w, h, T.wall);
 
-  // Outer border walls
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       if (y === 0 || y === h - 1 || x === 0 || x === w - 1) {
@@ -684,24 +605,21 @@ function makeDungeonEntrance(): number[][] {
     }
   }
 
-  // Entrance chamber (large, well-lit)
   for (let y = 2; y < 10; y++) {
     for (let x = 2; x < 12; x++) {
       tiles[y][x] = T.floor;
     }
   }
 
-  // Main corridor
   for (let y = 10; y < 14; y++) {
     for (let x = 5; x < 17; x++) {
       tiles[y][x] = T.darkFloor;
     }
   }
 
-  // Side rooms
   const sideRooms = [
-    { x: 2, y: 14, w: 6, h: 5 },   // SW room
-    { x: 14, y: 14, w: 6, h: 5 },   // SE room
+    { x: 2, y: 14, w: 6, h: 5 },
+    { x: 14, y: 14, w: 6, h: 5 },
   ];
   for (const r of sideRooms) {
     for (let dy = 0; dy < r.h; dy++) {
@@ -711,21 +629,17 @@ function makeDungeonEntrance(): number[][] {
     }
   }
 
-  // Corridors to side rooms
   for (let y = 10; y < 15; y++) {
     tiles[y][4] = T.darkFloor;
     tiles[y][17] = T.darkFloor;
   }
 
-  // Stairs down (south)
   tiles[h - 3][10] = T.stairs;
   tiles[h - 3][11] = T.stairs;
 
-  // Entry from west
   tiles[10][0] = T.gate;
   for (let x = 0; x < 6; x++) tiles[10][x] = T.darkFloor;
 
-  // Stone floor pattern
   for (let y = 2; y < 10; y++) {
     for (let x = 2; x < 12; x++) {
       if ((x + y) % 4 === 0) tiles[y][x] = T.stone;
@@ -739,26 +653,21 @@ function makeDungeonEntranceDecorations(): number[][] {
   const w = 22, h = 22;
   const deco = genGrid(w, h, D.none);
 
-  // Torches along entrance chamber
   deco[2][2] = D.torch;
   deco[2][11] = D.torch;
   deco[8][2] = D.torch;
   deco[8][11] = D.torch;
 
-  // Barrels and crates in entrance
   deco[3][3] = D.barrel;
   deco[3][4] = D.crate;
   deco[4][3] = D.crate;
 
-  // Web in corners
   deco[14][2] = D.web;
   deco[14][19] = D.web;
 
-  // Bone piles
   deco[7][6] = D.bone;
   deco[16][8] = D.bone;
 
-  // Chest in side room
   deco[16][16] = D.chest;
 
   return deco;
@@ -766,21 +675,28 @@ function makeDungeonEntranceDecorations(): number[][] {
 
 // ---- Mazmorra Profunda ----
 
+type CorridorH = { x1: number; x2: number; y: number };
+type CorridorV = { y1: number; y2: number; x: number };
+type Corridor = CorridorH | CorridorV;
+
+function isCorridorH(c: Corridor): c is CorridorH {
+  return "x1" in c && "x2" in c && "y" in c;
+}
+
 function makeDeepDungeon(): number[][] {
   const w = 25, h = 25;
   const tiles = genGrid(w, h, T.wall);
 
-  // Room layout — more complex
   const rooms = [
-    { x: 2, y: 2, w: 6, h: 5, floor: T.darkFloor },    // Entry room
-    { x: 10, y: 2, w: 7, h: 5, floor: T.floor },        // Armory
-    { x: 18, y: 2, w: 5, h: 5, floor: T.darkFloor },    // Guard room
-    { x: 2, y: 10, w: 6, h: 6, floor: T.darkFloor },    // Prison
-    { x: 10, y: 9, w: 7, h: 7, floor: T.floor },        // Central hall
-    { x: 18, y: 10, w: 5, h: 6, floor: T.darkFloor },   // Library
-    { x: 2, y: 18, w: 6, h: 5, floor: T.lava },         // Lava room
-    { x: 10, y: 18, w: 7, h: 5, floor: T.darkFloor },   // Throne room
-    { x: 18, y: 18, w: 5, h: 5, floor: T.darkFloor },   // Treasure vault
+    { x: 2, y: 2, w: 6, h: 5, floor: T.darkFloor },
+    { x: 10, y: 2, w: 7, h: 5, floor: T.floor },
+    { x: 18, y: 2, w: 5, h: 5, floor: T.darkFloor },
+    { x: 2, y: 10, w: 6, h: 6, floor: T.darkFloor },
+    { x: 10, y: 9, w: 7, h: 7, floor: T.floor },
+    { x: 18, y: 10, w: 5, h: 6, floor: T.darkFloor },
+    { x: 2, y: 18, w: 6, h: 5, floor: T.darkFloor },
+    { x: 10, y: 18, w: 7, h: 5, floor: T.darkFloor },
+    { x: 18, y: 18, w: 5, h: 5, floor: T.darkFloor },
   ];
 
   for (const r of rooms) {
@@ -794,32 +710,29 @@ function makeDeepDungeon(): number[][] {
     }
   }
 
-  // Corridors connecting rooms
-  const corridors = [
-    // Horizontal corridors
-    { x1: 8, x2: 10, y: 4 },    // Entry → Armory
-    { x1: 17, x2: 18, y: 4 },   // Armory → Guard
-    { x1: 8, x2: 10, y: 12 },   // Prison → Central
-    { x1: 17, x2: 18, y: 12 },  // Central → Library
-    { x1: 8, x2: 10, y: 20 },   // Lava → Throne
-    { x1: 17, x2: 18, y: 20 },  // Throne → Vault
-    // Vertical corridors
-    { y1: 7, y2: 10, x: 5 },    // Entry → Prison
-    { y1: 7, y2: 9, x: 13 },    // Armory → Central
-    { y1: 7, y2: 10, x: 20 },   // Guard → Library
-    { y1: 16, y2: 18, x: 5 },   // Prison → Lava
-    { y1: 16, y2: 18, x: 13 },  // Central → Throne
-    { y1: 16, y2: 18, x: 20 },  // Library → Vault
+  const corridors: Corridor[] = [
+    { x1: 8, x2: 10, y: 4 },
+    { x1: 17, x2: 18, y: 4 },
+    { x1: 8, x2: 10, y: 12 },
+    { x1: 17, x2: 18, y: 12 },
+    { x1: 8, x2: 10, y: 20 },
+    { x1: 17, x2: 18, y: 20 },
+    { y1: 7, y2: 10, x: 5 },
+    { y1: 7, y2: 9, x: 13 },
+    { y1: 7, y2: 10, x: 20 },
+    { y1: 16, y2: 18, x: 5 },
+    { y1: 16, y2: 18, x: 13 },
+    { y1: 16, y2: 18, x: 20 },
   ];
 
   for (const c of corridors) {
-    if ("x1" in c && "x2" in c && "y" in c) {
+    if (isCorridorH(c)) {
       for (let x = c.x1; x <= c.x2; x++) {
         if (c.y >= 0 && c.y < h && x >= 0 && x < w) {
           tiles[c.y][x] = T.darkFloor;
         }
       }
-    } else if ("y1" in c && "y2" in c && "x" in c) {
+    } else {
       for (let y = c.y1; y <= c.y2; y++) {
         if (y >= 0 && y < h && c.x >= 0 && c.x < w) {
           tiles[y][c.x] = T.darkFloor;
@@ -834,21 +747,14 @@ function makeDeepDungeon(): number[][] {
       tiles[18 + dy][2 + dx] = T.lava;
     }
   }
-  // Stone walkway through lava
   tiles[19][4] = T.stone;
   tiles[20][4] = T.stone;
   tiles[21][4] = T.stone;
 
-  // Stairs up (north)
   tiles[1][12] = T.stairs;
 
-  // Throne in throne room
   tiles[19][13] = T.stone;
   tiles[20][13] = T.stone;
-
-  // Treasure in vault
-  tiles[20][20] = T.gold_nugget as unknown as number;
-  tiles[20][20] = T.floor;
 
   return tiles;
 }
@@ -856,9 +762,7 @@ function makeDeepDungeon(): number[][] {
 function makeDeepDungeonDecorations(): number[][] {
   const w = 25, h = 25;
   const deco = genGrid(w, h, D.none);
-  const rng = seededRandom(500);
 
-  // Torches everywhere
   const torchPositions = [
     [3, 3], [3, 7], [8, 3], [8, 7],
     [11, 10], [11, 15], [15, 10], [15, 15],
@@ -869,27 +773,22 @@ function makeDeepDungeonDecorations(): number[][] {
     if (ty >= 0 && ty < h && tx >= 0 && tx < w) deco[ty][tx] = D.torch;
   }
 
-  // Webs in prison
   deco[10][2] = D.web;
   deco[12][2] = D.web;
   deco[14][7] = D.web;
 
-  // Bones and skulls
   deco[11][3] = D.bone;
   deco[13][5] = D.skull;
   deco[20][3] = D.gravestone;
 
-  // Chests in treasure vault
   deco[19][20] = D.chest;
   deco[20][21] = D.chest;
   deco[21][20] = D.chest;
 
-  // Books in library
   deco[11][19] = D.bookshelf;
   deco[12][19] = D.bookshelf;
   deco[13][19] = D.bookshelf;
 
-  // Weapon rack in armory
   deco[3][13] = D.weapon_rack;
   deco[4][14] = D.weapon_rack;
 
@@ -1009,7 +908,7 @@ export const MAPS: Record<string, GameMap> = {
     width: 25, height: 30, tileSize: 32, zone: MapZone.Wilderness,
     tiles: makePlains(),
     decorations: makePlainsDecorations(),
-    spawns: [{ x: 1, targetY: 15 } as any],
+    spawns: [{ x: 1, y: 15 }],
     connections: [
       { targetMapId: "rucci", targetX: 28, targetY: 14, triggerX: 1, triggerY: 15, triggerW: 2, triggerH: 3 },
     ],
@@ -1044,7 +943,7 @@ export const MAPS: Record<string, GameMap> = {
   },
 };
 
-// ---- All decoration tiles (for rendering) ----
+// ---- Decoration render data ----
 
 export const DECORATION_RENDER: Record<number, { color: number; shape: string; size?: number }> = {
   [D.torch]: { color: 0xff8800, shape: "torch", size: 4 },
@@ -1082,14 +981,12 @@ export function getAllMaps(): GameMap[] {
   return Object.values(MAPS);
 }
 
-/** Get the decoration at a tile position */
 export function getDecoration(mapId: string, x: number, y: number): number {
   const map = MAPS[mapId];
   if (!map) return D.none;
   return map.decorations[y]?.[x] ?? D.none;
 }
 
-/** Check if a tile is walkable */
 export function isWalkable(tileId: number): boolean {
   return tileId !== T.water && tileId !== T.wall && tileId !== T.tree &&
          tileId !== T.deadTree && tileId !== T.thorn && tileId !== T.lava;

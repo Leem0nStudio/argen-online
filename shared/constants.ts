@@ -68,8 +68,8 @@ export const MONSTER_FLEE_DISENGAGE_PCT = 1.2; // aggro range multiplier to stop
 
 // ---- Map Config ----
 export const DEFAULT_SPAWN_MAP = "rucci";
-export const DEFAULT_SPAWN_X = 12;
-export const DEFAULT_SPAWN_Y = 12;
+export const DEFAULT_SPAWN_X = 15;
+export const DEFAULT_SPAWN_Y = 15;
 
 // ---- XP ----
 export function xpForLevel(level: number): number {

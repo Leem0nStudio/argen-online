@@ -8,6 +8,7 @@ import { Server } from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
 import { initDB } from "./db/database.js";
+import { initWorld } from "./game/world.js";
 import { setupHandlers } from "./network/handlers.js";
 import { startGameLoop } from "./network/game-loop.js";
 
@@ -17,6 +18,9 @@ console.log("⚔️  Argentum Online - Game Server Starting...");
 
 initDB();
 console.log("✅ Database initialized");
+
+// Initialize procedural world
+const worldMap = initWorld();
 
 const app = express();
 const httpServer = createServer(app);

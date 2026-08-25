@@ -1,5 +1,4 @@
 // Register Canvas2D renderer as fallback for Pixi.js v7
-// These imports register canvas-based renderers when WebGL is unavailable
 import "@pixi/canvas-renderer";
 import "@pixi/canvas-graphics";
 import "@pixi/canvas-display";
@@ -9,16 +8,43 @@ import "@pixi/canvas-sprite";
 import * as PIXI from "pixi.js";
 import type { PlayerState, GroundItem, GameMap, NPCData, MonsterData } from "@shared/types";
 import { MapZone, Direction } from "@shared/types";
-import { MAPS } from "@shared/maps";
+import { MAPS, T, D, DECORATION_RENDER } from "@shared/maps";
 import { ITEMS } from "@shared/items";
 import { ParticleSystem, ScreenShake, AmbientTiles, drawEnhancedCharacter, drawEnhancedMonster, drawEnhancedItem } from "./vfx";
 
 const TILE_SIZE = 32;
 
+// All tile colors — matches T constants
 const TILE_COLORS: Record<number, number> = {
-  0: 0x2d5a1e, 1: 0x8b7355, 2: 0x1a4a7a, 3: 0x3a3a3a,
-  4: 0x6b5b4a, 5: 0x3a2a2a, 6: 0xc2a645, 7: 0x1a3a0e,
-  8: 0x5a5a5a, 9: 0xcc3300,
+  [T.grass]: 0x2d5a1e,
+  [T.path]: 0x8b7355,
+  [T.water]: 0x1a4a7a,
+  [T.wall]: 0x3a3a3a,
+  [T.floor]: 0x6b5b4a,
+  [T.darkFloor]: 0x3a2a2a,
+  [T.sand]: 0xc2a645,
+  [T.tree]: 0x1a3a0e,
+  [T.stone]: 0x5a5a5a,
+  [T.lava]: 0xcc3300,
+  [T.bridge]: 0x8b6914,
+  [T.sandBeach]: 0xd4b865,
+  [T.stonePath]: 0x7a7a6a,
+  [T.darkGrass]: 0x1f4a15,
+  [T.swamp]: 0x2a3a1a,
+  [T.rocky]: 0x6a5a4a,
+  [T.flowerGrass]: 0x3a6a2a,
+  [T.gate]: 0x8b6914,
+  [T.stairs]: 0x5a5a4a,
+  [T.dirt]: 0x7a6040,
+  [T.deadTree]: 0x3a2a1a,
+  [T.thorn]: 0x2a3a20,
+  [T.campfire]: 0x8a4a1a,
+  [T.signpost]: 0x6a5a3a,
+  [T.torch]: 0x5a5a4a,
+  [T.well]: 0x6a6a6a,
+  [T.fountain]: 0x4a8a9a,
+  [T.rubble]: 0x5a4a3a,
+  [T.moss]: 0x2a4a2a,
 };
 
 const CLASS_COLORS: Record<string, number> = {
@@ -29,6 +55,7 @@ export class GameEngine {
   app: PIXI.Application;
   worldContainer: PIXI.Container;
   tileContainer: PIXI.Container;
+  decoContainer: PIXI.Container;
   entityContainer: PIXI.Container;
   uiContainer: PIXI.Container;
   fxContainer: PIXI.Container;
@@ -62,14 +89,11 @@ export class GameEngine {
   onAttack: ((targetId: string) => void) | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
-    // Ensure canvas has explicit dimensions before Pixi.js touches it
     const w = window.innerWidth || 800;
     const h = window.innerHeight || 600;
     canvas.width = w;
     canvas.height = h;
 
-    // Build options — Pixi v7 auto-detects renderer; with @pixi/canvas-renderer
-    // installed, it will fall back to Canvas2D if WebGL is unavailable
     const opts = {
       view: canvas,
       width: w,
@@ -84,10 +108,9 @@ export class GameEngine {
     try {
       app = new PIXI.Application(opts);
     } catch (e) {
-      // Last resort: force Canvas2D
       console.warn("[GameEngine] Auto-detect failed, forcing Canvas2D:", e);
       try {
-        (PIXI as any).settings.PREFER_ENV = 0; // WEBGL_LEGACY fallback path
+        (PIXI as any).settings.PREFER_ENV = 0;
         app = new PIXI.Application({ ...opts, forceCanvas: true } as any);
       } catch (e2) {
         console.error("[GameEngine] All renderers failed:", e2);
@@ -103,11 +126,13 @@ export class GameEngine {
 
     this.worldContainer = new PIXI.Container();
     this.tileContainer = new PIXI.Container();
+    this.decoContainer = new PIXI.Container();
     this.entityContainer = new PIXI.Container();
     this.uiContainer = new PIXI.Container();
     this.fxContainer = new PIXI.Container();
 
     this.worldContainer.addChild(this.tileContainer);
+    this.worldContainer.addChild(this.decoContainer);
     this.worldContainer.addChild(this.entityContainer);
     this.worldContainer.addChild(this.fxContainer);
     this.app.stage.addChild(this.worldContainer);
@@ -173,7 +198,7 @@ export class GameEngine {
     this.lastFootstepTile = key;
     if (!this.currentMap) return;
     const tile = this.currentMap.tiles[y]?.[x];
-    if (tile === 2) {
+    if (tile === T.water) {
       this.particles.waterSplash(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2);
     }
   }
@@ -242,6 +267,7 @@ export class GameEngine {
     }
     this.currentMap = map;
     this.tileContainer.removeChildren();
+    this.decoContainer.removeChildren();
     this.tileGraphics = [];
     this.ambientTiles.clear();
 
@@ -255,7 +281,9 @@ export class GameEngine {
         g.drawRect(0, 0, TILE_SIZE, TILE_SIZE);
         g.endFill();
 
-        if (tileId === 0) {
+        // Tile detail overlays
+        if (tileId === T.grass || tileId === T.darkGrass || tileId === T.flowerGrass) {
+          // Grass blades
           g.lineStyle(1, 0x3a7a2e, 0.4);
           const seed = (x * 7 + y * 13) % 5;
           for (let i = 0; i < seed; i++) {
@@ -264,10 +292,124 @@ export class GameEngine {
             g.moveTo(gx, gy + 4); g.lineTo(gx + 1, gy);
           }
           g.lineStyle(0);
-        } else if (tileId === 1) {
-          g.beginFill(0x9a8365, 0.3);
+          if (tileId === T.flowerGrass) {
+            // Flower dots
+            const fc = ((x * 3 + y * 7) % 3 === 0) ? 0xff4444 : 0xffdd44;
+            g.beginFill(fc, 0.6);
+            g.drawCircle(10 + (x * 5) % 12, 10 + (y * 3) % 12, 2);
+            g.drawCircle(20 + (x * 7) % 8, 20 + (y * 5) % 8, 1.5);
+            g.endFill();
+          }
+        } else if (tileId === T.path || tileId === T.dirt) {
+          // Path pebbles
+          g.beginFill(tileId === T.dirt ? 0x8a7050 : 0x9a8365, 0.3);
           g.drawCircle(8 + (x * 3) % 12, 8 + (y * 5) % 16, 2);
           g.drawCircle(20 + (x * 7) % 8, 20 + (y * 3) % 8, 1.5);
+          g.endFill();
+        } else if (tileId === T.stonePath) {
+          // Stone path pattern
+          g.beginFill(0x8a8a7a, 0.2);
+          g.drawRect(1, 1, 14, 14);
+          g.drawRect(17, 17, 14, 14);
+          g.endFill();
+          g.lineStyle(1, 0x6a6a5a, 0.3);
+          g.moveTo(0, 16); g.lineTo(32, 16);
+          g.moveTo(16, 0); g.lineTo(16, 32);
+          g.lineStyle(0);
+        } else if (tileId === T.bridge) {
+          // Bridge planks
+          g.lineStyle(1, 0x6a5010, 0.5);
+          for (let i = 0; i < 4; i++) {
+            g.moveTo(0, i * 8); g.lineTo(32, i * 8);
+          }
+          g.lineStyle(2, 0x5a4010, 0.3);
+          g.moveTo(0, 0); g.lineTo(0, 32);
+          g.moveTo(32, 0); g.lineTo(32, 32);
+          g.lineStyle(0);
+        } else if (tileId === T.water) {
+          // Water detail
+          g.beginFill(0x2a6a9a, 0.2);
+          g.drawEllipse(16 + ((x * 7) % 8 - 4), 16 + ((y * 3) % 8 - 4), 6, 3);
+          g.endFill();
+        } else if (tileId === T.lava) {
+          // Lava bubbles
+          g.beginFill(0xff6600, 0.3);
+          g.drawCircle(12 + (x * 5) % 8, 12 + (y * 7) % 8, 3);
+          g.endFill();
+        } else if (tileId === T.gate) {
+          // Gate arch
+          g.lineStyle(2, 0xaa8833, 0.6);
+          g.drawRect(4, 2, 24, 28);
+          g.lineStyle(0);
+          g.beginFill(0x664422, 0.3);
+          g.drawRect(8, 6, 16, 22);
+          g.endFill();
+        } else if (tileId === T.stairs) {
+          // Staircase lines
+          g.lineStyle(1, 0x4a4a3a, 0.5);
+          for (let i = 0; i < 4; i++) {
+            g.moveTo(4, 4 + i * 7); g.lineTo(28, 4 + i * 7);
+          }
+          g.lineStyle(0);
+        } else if (tileId === T.swamp) {
+          // Swamp bubbles
+          g.beginFill(0x3a5a2a, 0.3);
+          g.drawCircle(8 + (x * 5) % 16, 20 + (y * 3) % 8, 2);
+          g.endFill();
+        } else if (tileId === T.rocky) {
+          // Rock texture
+          g.beginFill(0x7a6a5a, 0.3);
+          g.drawPolygon([-4, 8, 4, 0, 12, 6, 8, 14, 0, 12]);
+          g.drawPolygon([18, 18, 26, 14, 30, 20, 24, 26]);
+          g.endFill();
+        } else if (tileId === T.deadTree) {
+          // Dead tree trunk
+          g.beginFill(0x4a3a2a, 0.5);
+          g.drawRect(13, 8, 6, 20);
+          g.endFill();
+          g.lineStyle(2, 0x4a3a2a, 0.5);
+          g.moveTo(16, 12); g.lineTo(8, 6);
+          g.moveTo(16, 16); g.lineTo(24, 10);
+          g.lineStyle(0);
+        } else if (tileId === T.moss) {
+          // Moss dots
+          g.beginFill(0x3a6a3a, 0.3);
+          g.drawCircle(8, 8, 3);
+          g.drawCircle(24, 20, 4);
+          g.drawCircle(16, 28, 2);
+          g.endFill();
+        } else if (tileId === T.thorn) {
+          // Thorn bushes
+          g.beginFill(0x1a2a1a, 0.5);
+          g.drawCircle(16, 16, 10);
+          g.endFill();
+          g.lineStyle(1, 0x3a4a2a, 0.4);
+          g.moveTo(10, 12); g.lineTo(8, 6);
+          g.moveTo(22, 14); g.lineTo(26, 8);
+          g.moveTo(14, 20); g.lineTo(10, 26);
+          g.lineStyle(0);
+        } else if (tileId === T.fountain) {
+          // Fountain center
+          g.beginFill(0x4a8aaa, 0.5);
+          g.drawCircle(16, 16, 10);
+          g.endFill();
+          g.beginFill(0x6abacc, 0.3);
+          g.drawCircle(16, 16, 6);
+          g.endFill();
+        } else if (tileId === T.well) {
+          // Well
+          g.beginFill(0x6a6a6a, 0.6);
+          g.drawCircle(16, 16, 10);
+          g.endFill();
+          g.beginFill(0x2a4a6a, 0.5);
+          g.drawCircle(16, 16, 6);
+          g.endFill();
+        } else if (tileId === T.sandBeach) {
+          // Beach pebbles
+          g.beginFill(0xc4b070, 0.2);
+          g.drawCircle(10, 14, 2);
+          g.drawCircle(22, 8, 1.5);
+          g.drawCircle(18, 24, 2);
           g.endFill();
         }
 
@@ -279,6 +421,268 @@ export class GameEngine {
         this.tileContainer.addChild(g);
         this.tileGraphics.push(g);
         this.ambientTiles.addTile(g, x, y, tileId);
+      }
+    }
+
+    // ---- Render decorations ----
+    for (let y = 0; y < map.height; y++) {
+      for (let x = 0; x < map.width; x++) {
+        const decoId = map.decorations[y]?.[x] ?? D.none;
+        if (decoId === D.none) continue;
+        const render = DECORATION_RENDER[decoId];
+        if (!render) continue;
+
+        const g = new PIXI.Graphics();
+        const cx = x * TILE_SIZE + TILE_SIZE / 2;
+        const cy = y * TILE_SIZE + TILE_SIZE / 2;
+
+        switch (render.shape) {
+          case "torch": {
+            // Torch post
+            g.beginFill(0x553311);
+            g.drawRect(-2, -8, 4, 16);
+            g.endFill();
+            // Flame
+            g.beginFill(render.color, 0.8);
+            g.drawCircle(0, -10, 4);
+            g.endFill();
+            g.beginFill(0xffcc00, 0.5);
+            g.drawCircle(0, -12, 2);
+            g.endFill();
+            // Glow
+            g.beginFill(render.color, 0.08);
+            g.drawCircle(0, 0, 20);
+            g.endFill();
+            break;
+          }
+          case "signpost": {
+            g.beginFill(0x553311);
+            g.drawRect(-2, -4, 4, 16);
+            g.endFill();
+            g.beginFill(render.color);
+            g.drawRect(-8, -10, 16, 8);
+            g.endFill();
+            break;
+          }
+          case "rock": {
+            g.beginFill(render.color, 0.7);
+            g.drawEllipse(0, 2, 6, 4);
+            g.endFill();
+            g.beginFill(0x777777, 0.5);
+            g.drawEllipse(-2, 0, 4, 3);
+            g.endFill();
+            break;
+          }
+          case "campfire": {
+            // Logs
+            g.beginFill(0x5a3a1a);
+            g.drawRect(-6, 2, 12, 3);
+            g.drawRect(-4, 0, 8, 3);
+            g.endFill();
+            // Fire
+            g.beginFill(0xff4400, 0.7);
+            g.drawCircle(0, -2, 5);
+            g.endFill();
+            g.beginFill(0xffaa00, 0.5);
+            g.drawCircle(0, -4, 3);
+            g.endFill();
+            // Glow
+            g.beginFill(0xff4400, 0.06);
+            g.drawCircle(0, 0, 24);
+            g.endFill();
+            break;
+          }
+          case "flower": {
+            g.beginFill(render.color, 0.7);
+            g.drawCircle(0, 0, 3);
+            g.endFill();
+            g.beginFill(0x44aa44, 0.5);
+            g.drawRect(-1, 2, 2, 4);
+            g.endFill();
+            break;
+          }
+          case "mushroom": {
+            g.beginFill(0x886633);
+            g.drawRect(-2, 0, 4, 6);
+            g.endFill();
+            g.beginFill(render.color, 0.7);
+            g.drawEllipse(0, -1, 5, 3);
+            g.endFill();
+            break;
+          }
+          case "barrel": {
+            g.beginFill(render.color, 0.7);
+            g.drawRoundedRect(-6, -6, 12, 12, 3);
+            g.endFill();
+            g.lineStyle(1, 0x5a3010, 0.5);
+            g.drawRoundedRect(-6, -6, 12, 12, 3);
+            g.lineStyle(0);
+            break;
+          }
+          case "crate": {
+            g.beginFill(render.color, 0.7);
+            g.drawRect(-6, -6, 12, 12);
+            g.endFill();
+            g.lineStyle(1, 0x6a3a1a, 0.5);
+            g.moveTo(-6, 0); g.lineTo(6, 0);
+            g.moveTo(0, -6); g.lineTo(0, 6);
+            g.lineStyle(0);
+            break;
+          }
+          case "bone": {
+            g.beginFill(render.color, 0.6);
+            g.drawCircle(-3, -2, 2);
+            g.drawCircle(3, 2, 2);
+            g.endFill();
+            g.lineStyle(1.5, render.color, 0.5);
+            g.moveTo(-2, -1); g.lineTo(2, 1);
+            g.lineStyle(0);
+            break;
+          }
+          case "skull": {
+            g.beginFill(render.color, 0.6);
+            g.drawCircle(0, -2, 5);
+            g.endFill();
+            g.beginFill(0x222222, 0.5);
+            g.drawCircle(-2, -3, 1.5);
+            g.drawCircle(2, -3, 1.5);
+            g.endFill();
+            break;
+          }
+          case "web": {
+            g.lineStyle(0.5, render.color, 0.3);
+            for (let i = 0; i < 4; i++) {
+              const a = (i * Math.PI) / 2;
+              g.moveTo(0, 0);
+              g.lineTo(Math.cos(a) * 8, Math.sin(a) * 8);
+            }
+            g.lineStyle(0);
+            break;
+          }
+          case "gravestone": {
+            g.beginFill(render.color, 0.6);
+            g.drawRoundedRect(-5, -8, 10, 14, 3);
+            g.endFill();
+            g.lineStyle(1, 0x666666, 0.4);
+            g.moveTo(-3, -4); g.lineTo(3, -4);
+            g.moveTo(-2, 0); g.lineTo(2, 0);
+            g.lineStyle(0);
+            break;
+          }
+          case "lantern": {
+            g.beginFill(0x553311);
+            g.drawRect(-1, -6, 2, 10);
+            g.endFill();
+            g.beginFill(render.color, 0.6);
+            g.drawRoundedRect(-4, -8, 8, 6, 2);
+            g.endFill();
+            g.beginFill(render.color, 0.1);
+            g.drawCircle(0, -2, 12);
+            g.endFill();
+            break;
+          }
+          case "stall": {
+            // Market stall
+            g.beginFill(0x8b6914);
+            g.drawRect(-8, -4, 16, 12);
+            g.endFill();
+            g.beginFill(render.color, 0.6);
+            g.drawRect(-10, -10, 20, 6);
+            g.endFill();
+            break;
+          }
+          case "anvil": {
+            g.beginFill(render.color, 0.7);
+            g.drawRect(-5, -2, 10, 6);
+            g.drawRect(-3, -6, 6, 4);
+            g.endFill();
+            break;
+          }
+          case "bookshelf": {
+            g.beginFill(render.color, 0.6);
+            g.drawRect(-7, -8, 14, 16);
+            g.endFill();
+            // Books
+            g.beginFill(0xcc4444, 0.4);
+            g.drawRect(-5, -6, 3, 6);
+            g.endFill();
+            g.beginFill(0x4444cc, 0.4);
+            g.drawRect(-1, -6, 3, 6);
+            g.endFill();
+            g.beginFill(0x44aa44, 0.4);
+            g.drawRect(3, -6, 3, 6);
+            g.endFill();
+            break;
+          }
+          case "chest": {
+            g.beginFill(render.color, 0.7);
+            g.drawRoundedRect(-7, -5, 14, 10, 2);
+            g.endFill();
+            g.lineStyle(1, 0xaa8800, 0.5);
+            g.drawRoundedRect(-7, -5, 14, 10, 2);
+            g.lineStyle(0);
+            g.beginFill(0xffdd44, 0.5);
+            g.drawRect(-2, -1, 4, 2);
+            g.endFill();
+            break;
+          }
+          case "flag": {
+            g.beginFill(0x553311);
+            g.drawRect(-1, -10, 2, 18);
+            g.endFill();
+            g.beginFill(render.color, 0.7);
+            g.moveTo(1, -10); g.lineTo(10, -7); g.lineTo(1, -4);
+            g.closePath();
+            g.endFill();
+            break;
+          }
+          case "bench": {
+            g.beginFill(render.color, 0.6);
+            g.drawRect(-8, -2, 16, 4);
+            g.endFill();
+            g.beginFill(0x5a4a1a);
+            g.drawRect(-7, 2, 3, 4);
+            g.drawRect(4, 2, 3, 4);
+            g.endFill();
+            break;
+          }
+          case "weaponrack": {
+            g.beginFill(0x553311);
+            g.drawRect(-8, -6, 16, 2);
+            g.endFill();
+            // Swords
+            g.lineStyle(1.5, 0xcccccc, 0.5);
+            g.moveTo(-4, -6); g.lineTo(-4, 6);
+            g.moveTo(0, -6); g.lineTo(0, 4);
+            g.lineStyle(0);
+            break;
+          }
+          case "potionshelf": {
+            g.beginFill(0x553311);
+            g.drawRect(-7, -6, 14, 12);
+            g.endFill();
+            g.beginFill(0x44aa44, 0.5);
+            g.drawCircle(-3, -2, 2);
+            g.endFill();
+            g.beginFill(0x4444cc, 0.5);
+            g.drawCircle(3, -2, 2);
+            g.endFill();
+            g.beginFill(0xcc4444, 0.5);
+            g.drawCircle(0, 2, 2);
+            g.endFill();
+            break;
+          }
+          default: {
+            g.beginFill(render.color, 0.5);
+            g.drawCircle(0, 0, 3);
+            g.endFill();
+            break;
+          }
+        }
+
+        g.x = cx;
+        g.y = cy;
+        this.decoContainer.addChild(g);
       }
     }
 
@@ -488,7 +892,8 @@ export class GameEngine {
     if (x < 0 || x >= this.currentMap.width || y < 0 || y >= this.currentMap.height) return false;
     const tile = this.currentMap.tiles[y]?.[x];
     if (tile === undefined) return false;
-    return tile !== 2 && tile !== 3 && tile !== 7 && tile !== 9;
+    return tile !== T.water && tile !== T.wall && tile !== T.tree &&
+           tile !== T.deadTree && tile !== T.thorn && tile !== T.lava;
   }
 
   // ---- Local Player ----

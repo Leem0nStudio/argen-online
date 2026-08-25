@@ -22,6 +22,7 @@ import { pickupItem, equipItem, useConsumable } from "../game/inventory.js";
 import { addChatMessage, addSystemMessage } from "../game/chat.js";
 import { getNPC, npcBuyItem, npcSellItem } from "../game/npc.js";
 import { spawnMonstersForMap, getMonstersAsData } from "../game/monster-ai.js";
+import { getWorldMap, getWorldDataForClient } from "../game/world.js";
 import { getPlayersOnMap } from "./helpers.js";
 
 type GameServer = Server<ClientEvents, ServerEvents>;
@@ -45,6 +46,10 @@ function sendMapState(socket: GameSocket, mapId: string) {
     mapId,
   });
   socket.emit("monsters:update", getMonstersAsData(mapId));
+  // Send procedural world data to client
+  try {
+    socket.emit("world:data", getWorldDataForClient());
+  } catch { /* world not ready */ }
 }
 
 export function setupHandlers(io: GameServer) {

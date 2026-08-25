@@ -270,6 +270,7 @@ export interface ClientEvents {
   "npc:interact": (npcId: string) => void;
   "npc:buy": (itemId: string, quantity: number) => void;
   "npc:sell": (inventorySlot: number, quantity: number) => void;
+  "world:request": (data: { wx: number; wy: number; radius: number }) => void;
 }
 
 export interface ServerEvents {
@@ -287,4 +288,51 @@ export interface ServerEvents {
   "npc:interact": (data: { npcId: string; dialogue: string; shopItems?: ItemDef[] }) => void;
   "world:state": (state: { players: PlayerState[]; groundItems: GroundItem[]; mapId: string }) => void;
   "monsters:update": (monsters: MonsterData[]) => void;
+  "world:data": (data: WorldMetaData) => void;
+  "world:chunk": (data: { rx: number; ry: number; tiles: number[][] }) => void;
+}
+
+// ---- World Generation Types ----
+
+export interface WorldSettlement {
+  id: string;
+  name: string;
+  wx: number;
+  wy: number;
+  type: "capital" | "city" | "town" | "village";
+  kingdom: string;
+  population: number;
+  radius: number;
+}
+
+export interface WorldKingdom {
+  id: string;
+  name: string;
+  capitalId: string;
+  color: number;
+}
+
+export interface WorldPOI {
+  id: string;
+  type: "dungeon" | "ruins" | "mine" | "shrine" | "cave";
+  name: string;
+  wx: number;
+  wy: number;
+}
+
+export interface WorldRoad {
+  wx: number;
+  wy: number;
+  fromSettlement: string;
+  toSettlement: string;
+}
+
+export interface WorldMetaData {
+  seed: number;
+  width: number;
+  height: number;
+  settlements: WorldSettlement[];
+  kingdoms: WorldKingdom[];
+  pois: WorldPOI[];
+  roads: WorldRoad[];
 }

@@ -29,6 +29,16 @@ function findNearestPlayer(monster: Monster) {
 }
 
 export function spawnMonstersForMap(mapId: string) {
+  // Settlement maps are safe zones — no monsters
+  if (mapId.startsWith("settlement_")) return;
+
+  // Procedural world: spawn around player positions
+  if (mapId === "world") {
+    spawnWorldMonsters();
+    return;
+  }
+
+  // Legacy handcrafted maps
   const map = MAPS[mapId];
   if (!map || map.zone === MapZone.City) return;
 
@@ -57,6 +67,49 @@ export function spawnMonstersForMap(mapId: string) {
   }
 }
 
+/** Spawn monsters in the procedural world around players */
+function spawnWorldMonsters() {
+  // Find players on the world map and spawn monsters near them
+  const worldPlayers = Array.from(Players.all()).filter(p => p.mapId === "world" && !Players.isDead(p.id));
+  const existingWorldMonsters = Monsters.onMap("world").filter(m => m.hp > 0);
+
+  for (const player of worldPlayers) {
+    const nearbyMonsters = existingWorldMonsters.filter(m => {
+      const dist = Math.abs(m.x - player.x) + Math.abs(m.y - player.y);
+      return dist < 30;
+    });
+
+    if (nearbyMonsters.length >= 6) continue; // Already enough monsters nearby
+
+    const spawnCount = Math.max(0, 6 - nearbyMonsters.length);
+    for (let i = 0; i < spawnCount; i++) {
+      // Spawn at random position within 15 tiles of player
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 8 + Math.random() * 12;
+      const sx = Math.round(player.x + Math.cos(angle) * dist);
+      const sy = Math.round(player.y + Math.sin(angle) * dist);
+
+      if (canMoveTo("world", sx, sy)) {
+        const def = MONSTER_DEFS[Math.floor(Math.random() * MONSTER_DEFS.length)];
+        const id = `monster_${uuidv4().slice(0, 8)}`;
+        Monsters.set({
+          id, name: def.name, hp: def.hp, maxHp: def.hp,
+          damage: def.damage, x: sx, y: sy, mapId: "world",
+          xpReward: def.xp, loot: [...def.loot],
+          respawnTime: def.respawn, lastDeath: 0,
+          aiState: "idle", spawnX: sx, spawnY: sy,
+          targetId: null, lastAiTick: Date.now(),
+          idleEnd: Date.now() + 1000 + Math.random() * 3000,
+          patrolTargetX: sx, patrolTargetY: sy,
+          aggroRange: def.aggroRange, attackRange: def.attackRange,
+          chaseSpeed: def.chaseSpeed, patrolSpeed: def.patrolSpeed,
+          lastAutoAttack: 0,
+        });
+      }
+    }
+  }
+}
+
 export function respawnMonsters() {
   const now = Date.now();
   for (const [, monster] of Monsters.all()) {
@@ -64,14 +117,19 @@ export function respawnMonsters() {
       monster.hp = monster.maxHp;
       const map = MAPS[monster.mapId];
       if (map) {
+        // Legacy map: random position within map bounds
         monster.x = MONSTER_SPAWN_MARGIN + Math.floor(Math.random() * (map.width - MONSTER_SPAWN_MARGIN * 2));
         monster.y = MONSTER_SPAWN_MARGIN + Math.floor(Math.random() * (map.height - MONSTER_SPAWN_MARGIN * 2));
-        monster.spawnX = monster.x;
-        monster.spawnY = monster.y;
-        monster.aiState = "idle";
-        monster.idleEnd = now + 1000 + Math.random() * 3000;
-        monster.targetId = null;
+      } else if (monster.mapId === "world") {
+        // Procedural world: respawn near original spawn point
+        monster.x = monster.spawnX + Math.floor(Math.random() * 10) - 5;
+        monster.y = monster.spawnY + Math.floor(Math.random() * 10) - 5;
       }
+      monster.spawnX = monster.x;
+      monster.spawnY = monster.y;
+      monster.aiState = "idle";
+      monster.idleEnd = now + 1000 + Math.random() * 3000;
+      monster.targetId = null;
     }
   }
 }
@@ -103,15 +161,17 @@ export function tickMonsterAI(): { events: { type: string; data: any }[] } {
           monster.aiState = "chase";
           break;
         }
+        const range = 5;
         const map = MAPS[monster.mapId];
-        if (map) {
-          const range = 5;
-          monster.patrolTargetX = Math.max(1, Math.min(map.width - 2,
-            monster.spawnX + Math.floor(Math.random() * range * 2) - range));
-          monster.patrolTargetY = Math.max(1, Math.min(map.height - 2,
-            monster.spawnY + Math.floor(Math.random() * range * 2) - range));
-          monster.aiState = "patrol";
-        }
+        const maxX = map ? map.width - 2 : monster.spawnX + 20;
+        const maxY = map ? map.height - 2 : monster.spawnY + 20;
+        const minX = map ? 1 : monster.spawnX - 20;
+        const minY = map ? 1 : monster.spawnY - 20;
+        monster.patrolTargetX = Math.max(minX, Math.min(maxX,
+          monster.spawnX + Math.floor(Math.random() * range * 2) - range));
+        monster.patrolTargetY = Math.max(minY, Math.min(maxY,
+          monster.spawnY + Math.floor(Math.random() * range * 2) - range));
+        monster.aiState = "patrol";
         break;
       }
 

@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import type { PlayerState, InventoryItem, Equipment } from "../../shared/types.js";
 import { Direction } from "../../shared/types.js";
+import { getWorldMap } from "../game/world.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = path.join(__dirname, "../../game.db");
@@ -66,10 +67,25 @@ export function registerPlayer(username: string, password: string, characterClas
 
   const s = stats[characterClass] || stats.warrior;
 
+  // Determine spawn location from procedural world
+  let spawnMap = "rucci";
+  let spawnX = 15;
+  let spawnY = 15;
+  try {
+    const wm = getWorldMap();
+    const capital = wm.settlements.find(s => s.type === "capital") ?? wm.settlements[0];
+    if (capital) {
+      spawnMap = wm.getSettlementMapId(capital);
+      const map = wm.getMap(spawnMap);
+      spawnX = map?.spawns[0]?.x ?? Math.floor((map?.width ?? 30) / 2);
+      spawnY = map?.spawns[0]?.y ?? Math.floor((map?.height ?? 30) / 2);
+    }
+  } catch { /* world not ready yet, use defaults */ }
+
   db.prepare(`
-    INSERT INTO players (id, username, password_hash, character_class, strength, dexterity, intelligence, constitution, max_hp, max_mp, gold)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 100)
-  `).run(id, username, hash, characterClass, s.str, s.dex, s.int, s.con, s.hp, s.mp);
+    INSERT INTO players (id, username, password_hash, character_class, x, y, map_id, strength, dexterity, intelligence, constitution, max_hp, max_mp, gold)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 100)
+  `).run(id, username, hash, characterClass, spawnX, spawnY, spawnMap, s.str, s.dex, s.int, s.con, s.hp, s.mp);
 
   // Default inventory: a health potion and bandage
   db.prepare(`INSERT INTO inventory (player_id, item_id, quantity, slot) VALUES (?, 'health_potion', 3, 0)`).run(id);

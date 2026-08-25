@@ -1,4 +1,5 @@
 import * as PIXI from "pixi.js";
+import { T } from "@shared/maps";
 
 const TILE_SIZE = 32;
 
@@ -192,7 +193,7 @@ export class AmbientTiles {
   tiles: AnimatedTile[] = [];
 
   addTile(g: PIXI.Graphics, x: number, y: number, type: number) {
-    if (type === 2 || type === 9 || type === 7) { // water, lava, tree
+    if (type === T.water || type === T.lava || type === T.tree || type === T.swamp) {
       this.tiles.push({ graphics: g, x, y, type, phase: Math.random() * Math.PI * 2 });
     }
   }
@@ -200,7 +201,7 @@ export class AmbientTiles {
   update(time: number) {
     for (const t of this.tiles) {
       const wave = Math.sin(time * 0.002 + t.phase);
-      if (t.type === 2) {
+      if (t.type === T.water || t.type === T.swamp) {
         // Water shimmer
         const baseColor = 0x1a4a7a;
         const highlight = 0x2a6a9a;
@@ -223,7 +224,7 @@ export class AmbientTiles {
         t.graphics.beginFill(0x4488bb, 0.2 * wave);
         t.graphics.drawRect(2 + wave * 4, 8, TILE_SIZE - 8, 2);
         t.graphics.endFill();
-      } else if (t.type === 9) {
+      } else if (t.type === T.lava) {
         // Lava glow
         const baseColor = 0xcc3300;
         const glow = 0xff6600;
@@ -246,7 +247,7 @@ export class AmbientTiles {
         t.graphics.beginFill(0xff8800, 0.15 + 0.1 * wave);
         t.graphics.drawCircle(TILE_SIZE / 2 + wave * 3, TILE_SIZE / 2, 6);
         t.graphics.endFill();
-      } else if (t.type === 7) {
+      } else if (t.type === T.tree) {
         // Tree sway
         t.graphics.y = t.y * TILE_SIZE + wave * 1.5;
       }

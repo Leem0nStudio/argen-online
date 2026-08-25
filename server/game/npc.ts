@@ -7,11 +7,23 @@ import { MAPS } from "../../shared/maps.js";
 import { ITEMS } from "../../shared/items.js";
 import { MAX_INVENTORY_SLOTS } from "../../shared/constants.js";
 import { Players } from "./state.js";
+import { getWorldMap } from "./world.js";
 
 export function getNPC(mapId: string, npcId: string): NPCData | undefined {
-  const map = MAPS[mapId];
-  if (!map) return undefined;
-  return map.npcs.find(n => n.id === npcId);
+  // Legacy maps
+  const legacyMap = MAPS[mapId];
+  if (legacyMap) {
+    return legacyMap.npcs.find(n => n.id === npcId);
+  }
+  // Procedural settlement maps
+  try {
+    const wm = getWorldMap();
+    const settlementMap = wm.getMap(mapId);
+    if (settlementMap) {
+      return settlementMap.npcs.find(n => n.id === npcId);
+    }
+  } catch { /* world not ready */ }
+  return undefined;
 }
 
 export function npcBuyItem(playerId: string, itemId: string, quantity: number): boolean {
