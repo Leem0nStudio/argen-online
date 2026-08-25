@@ -24,6 +24,8 @@ export function initDB() {
       character_class TEXT NOT NULL,
       level INTEGER DEFAULT 1,
       experience INTEGER DEFAULT 0,
+      stat_points INTEGER DEFAULT 0,
+      skill_unlocks TEXT DEFAULT 'Q',
       gold INTEGER DEFAULT 100,
       x INTEGER DEFAULT 12,
       y INTEGER DEFAULT 12,
@@ -103,7 +105,7 @@ export function authenticatePlayer(username: string, password: string): string |
 
 export function getPlayer(id: string): (PlayerState & { inventory: InventoryItem[] }) | null {
   const row = db.prepare(`
-    SELECT id, username, character_class, level, experience, gold, x, y, map_id,
+    SELECT id, username, character_class, level, experience, stat_points, skill_unlocks, gold, x, y, map_id,
            strength, dexterity, intelligence, constitution, max_hp, max_mp
     FROM players WHERE id = ?
   `).get(id) as any;
@@ -125,6 +127,8 @@ export function getPlayer(id: string): (PlayerState & { inventory: InventoryItem
     characterClass: row.character_class,
     level: row.level,
     experience: row.experience,
+    statPoints: row.stat_points ?? 0,
+    skillUnlocks: row.skill_unlocks ? row.skill_unlocks.split(",") : ["Q"],
     gold: row.gold,
     x: row.x,
     y: row.y,
@@ -152,12 +156,13 @@ export function getPlayer(id: string): (PlayerState & { inventory: InventoryItem
 
 export function savePlayer(player: PlayerState) {
   db.prepare(`
-    UPDATE players SET level = ?, experience = ?, gold = ?, x = ?, y = ?, map_id = ?,
+    UPDATE players SET level = ?, experience = ?, stat_points = ?, skill_unlocks = ?, gold = ?, x = ?, y = ?, map_id = ?,
       strength = ?, dexterity = ?, intelligence = ?, constitution = ?,
       max_hp = ?, max_mp = ?
     WHERE id = ?
   `).run(
-    player.level, player.experience, player.gold, player.x, player.y, player.mapId,
+    player.level, player.experience, player.statPoints ?? 0, (player.skillUnlocks ?? ["Q"]).join(","),
+    player.gold, player.x, player.y, player.mapId,
     player.stats.strength, player.stats.dexterity, player.stats.intelligence, player.stats.constitution,
     player.stats.maxHp, player.stats.maxMp, player.id
   );

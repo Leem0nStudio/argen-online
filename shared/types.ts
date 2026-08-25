@@ -120,6 +120,8 @@ export interface PlayerState {
   characterClass: string;
   level: number;
   experience: number;
+  statPoints: number;
+  skillUnlocks: string[]; // unlocked skill slots: ["Q","W","E"]
   gold: number;
   x: number;
   y: number;
@@ -271,6 +273,7 @@ export interface ClientEvents {
   "npc:buy": (itemId: string, quantity: number) => void;
   "npc:sell": (inventorySlot: number, quantity: number) => void;
   "world:request": (data: { wx: number; wy: number; radius: number }) => void;
+  "stat:allocate": (data: { stat: "strength" | "dexterity" | "intelligence" | "constitution" }) => void;
 }
 
 export interface ServerEvents {
@@ -290,6 +293,7 @@ export interface ServerEvents {
   "monsters:update": (monsters: MonsterData[]) => void;
   "world:data": (data: WorldMetaData) => void;
   "world:chunk": (data: { rx: number; ry: number; tiles: number[][] }) => void;
+  "player:levelup": (data: { level: number; statPoints: number; newUnlocks: string[] }) => void;
 }
 
 // ---- World Generation Types ----

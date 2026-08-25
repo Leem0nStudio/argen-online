@@ -73,8 +73,17 @@ export const DEFAULT_SPAWN_Y = 15;
 
 // ---- XP ----
 export function xpForLevel(level: number): number {
-  return level * 100;
+  return Math.floor(level * level * 80 + level * 20);
 }
+export const STAT_POINTS_PER_LEVEL = 3;
+
+// ---- Skill Unlocks ----
+export const SKILL_UNLOCK_LEVELS: Record<number, string[]> = {
+  1: ["Q"],  // First skill available from level 1
+  5: ["W"],  // Second skill at level 5
+  10: ["E"], // Third skill at level 10
+};
+export const MAX_LEVEL = 50;
 
 // ---- Client-only constants (non-numeric, safe for server import) ----
 export const ALL_WILDERNESS_MAPS = ["campo_norte", "campo_sur", "campo_oeste", "campo_este", "mazmorra_entrance", "mazmorra_profunda"] as const;

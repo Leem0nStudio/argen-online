@@ -16,7 +16,7 @@ import {
 import {
   movePlayer, stopPlayer, respawnPlayer,
 } from "../game/movement.js";
-import { tryAttack } from "../game/combat.js";
+import { tryAttack, grantXp } from "../game/combat.js";
 import { useSkill } from "../game/skills.js";
 import { pickupItem, equipItem, useConsumable } from "../game/inventory.js";
 import { addChatMessage, addSystemMessage } from "../game/chat.js";
@@ -145,10 +145,23 @@ export function setupHandlers(io: GameServer) {
       io.emit("combat:damage", event);
 
       const victim = Players.get(targetId);
+      const monster = Monsters.get(targetId);
       if (victim && victim.stats.hp <= 0) {
         io.emit("combat:death", { killerId: playerId, victimId: targetId });
         const killer = Players.get(playerId);
         io.emit("chat:message", addSystemMessage(`${killer?.username} ha derrotado a ${victim.username}!`));
+      }
+      // XP from monster kill
+      if (monster && monster.hp <= 0) {
+        const killer = Players.get(playerId);
+        if (killer) {
+          const xpResult = grantXp(killer, monster.xpReward);
+          io.emit("combat:damage", { attackerId: playerId, defenderId: targetId, damage: 0, isCrit: false, timestamp: Date.now(), xp: monster.xpReward });
+          if (xpResult.leveledUp) {
+            socket.emit("player:levelup", { level: xpResult.newLevel, statPoints: xpResult.totalStatPoints, newUnlocks: xpResult.newUnlocks });
+            io.emit("chat:message", addSystemMessage(`¡${killer.username} ha subido al nivel ${xpResult.newLevel}!`));
+          }
+        }
       }
 
       const attacker = Players.get(playerId);
@@ -282,6 +295,30 @@ export function setupHandlers(io: GameServer) {
       } catch (err) {
         console.error("[Socket] world:request failed:", err);
       }
+    });
+
+    // ---- Stat Allocation ----
+    socket.on("stat:allocate", (data) => {
+      const playerId = socket.data.playerId;
+      const player = playerId ? Players.get(playerId) : undefined;
+      if (!player || player.statPoints <= 0) return;
+
+      const stat = data.stat;
+      if (!player.stats[stat] && player.stats[stat] !== 0) return;
+
+      (player.stats as Record<string, number>)[stat] += 1;
+      player.statPoints -= 1;
+
+      // Recalculate derived stats
+      if (stat === "constitution") {
+        player.stats.maxHp += 3;
+        player.stats.hp = Math.min(player.stats.hp + 3, player.stats.maxHp);
+      } else if (stat === "intelligence") {
+        player.stats.maxMp += 2;
+        player.stats.mp = Math.min(player.stats.mp + 2, player.stats.maxMp);
+      }
+
+      socket.emit("player:update", player);
     });
 
     socket.on("disconnect", () => {

@@ -6,6 +6,7 @@ import { getSocket } from "../network/socket";
 import { GameEngine } from "../game/engine";
 import VirtualJoystick from "./VirtualJoystick";
 import Minimap from "./Minimap";
+import StatPanel from "./StatPanel";
 import * as Audio from "../game/audio";
 
 interface Props {
@@ -58,6 +59,8 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
   const [engineError, setEngineError] = useState<string | null>(null);
   const [engineReady, setEngineReady] = useState(false);
   const [worldData, setWorldData] = useState<WorldMetaData | null>(null);
+  const [showStatPanel, setShowStatPanel] = useState(false);
+  const [levelUpToast, setLevelUpToast] = useState<{ level: number; newUnlocks: string[] } | null>(null);
 
   const safeAreaInset = useMemo(() => ({
     top: "env(safe-area-inset-top, 0px)",
@@ -175,6 +178,11 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
     const onWorldChunk = (data: { rx: number; ry: number; tiles: number[][] }) => {
       engineRef.current?.loadWorldChunk(data.rx, data.ry, data.tiles);
     };
+    const onLevelUp = (data: { level: number; statPoints: number; newUnlocks: string[] }) => {
+      setPlayer(p => ({ ...p, level: data.level, statPoints: data.statPoints, skillUnlocks: [...(p.skillUnlocks ?? []), ...data.newUnlocks] }));
+      setLevelUpToast({ level: data.level, newUnlocks: data.newUnlocks });
+      setTimeout(() => setLevelUpToast(null), 4000);
+    };
 
     socket.on("player:update", onPlayerUpdate);
     socket.on("player:move", onPlayerMove);
@@ -190,6 +198,7 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
     socket.on("monsters:update", onMonstersUpdate);
     socket.on("world:data", onWorldData);
     socket.on("world:chunk", onWorldChunk);
+    socket.on("player:levelup", onLevelUp);
 
     return () => {
       socket.off("player:update", onPlayerUpdate);
@@ -206,6 +215,7 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
       socket.off("monsters:update", onMonstersUpdate);
       socket.off("world:data", onWorldData);
       socket.off("world:chunk", onWorldChunk);
+      socket.off("player:levelup", onLevelUp);
     };
   }, [player.id]);
 
@@ -469,6 +479,29 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
           {d.isHeal ? `+${d.amount}` : `-${d.amount}`}
         </div>
       ))}
+
+      {/* Level Up Toast */}
+      {levelUpToast && (
+        <div className="levelup-toast">
+          <div className="levelup-toast-title">⭐ ¡Nivel {levelUpToast.level}! ⭐</div>
+          {levelUpToast.newUnlocks.length > 0 && (
+            <div className="levelup-toast-unlock">🔓 Habilidad desbloqueada: {levelUpToast.newUnlocks.join(", ")}</div>
+          )}
+          <div className="levelup-toast-sub">+3 puntos de stat disponibles</div>
+        </div>
+      )}
+
+      {/* Stat Panel Button */}
+      {(player.statPoints ?? 0) > 0 && !showStatPanel && !deathScreen && !engineError && (
+        <button className="stat-btn-float" onClick={() => setShowStatPanel(true)}>
+          ⬆️ Stat ({player.statPoints})
+        </button>
+      )}
+
+      {/* Stat Panel */}
+      {showStatPanel && (
+        <StatPanel player={player} onClose={() => setShowStatPanel(false)} />
+      )}
 
       {/* Death Screen */}
       {deathScreen && (

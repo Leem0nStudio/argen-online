@@ -217,27 +217,53 @@ export function monsterAttackPlayer(monsterId: string): { playerId: string; dama
 
 // ---- Level Up ----
 
-import { xpForLevel } from "../../shared/constants.js";
-import {
-  LEVEL_HP_GAIN, LEVEL_MP_GAIN, LEVEL_STR_GAIN,
-  LEVEL_DEX_GAIN, LEVEL_INT_GAIN, LEVEL_CON_GAIN,
-} from "../../shared/constants.js";
+import { xpForLevel, STAT_POINTS_PER_LEVEL, SKILL_UNLOCK_LEVELS, MAX_LEVEL } from "../../shared/constants.js";
 
-export function grantXp(player: ActivePlayer, xp: number): boolean {
+export interface LevelUpResult {
+  leveledUp: boolean;
+  levelsGained: number;
+  newLevel: number;
+  statPointsGained: number;
+  totalStatPoints: number;
+  newUnlocks: string[]; // skill slot keys unlocked
+}
+
+export function grantXp(player: ActivePlayer, xp: number): LevelUpResult {
   player.experience += xp;
-  let leveledUp = false;
-  while (player.experience >= xpForLevel(player.level)) {
+  let levelsGained = 0;
+  let statPointsGained = 0;
+  const newUnlocks: string[] = [];
+  const startLevel = player.level;
+
+  while (player.level < MAX_LEVEL && player.experience >= xpForLevel(player.level)) {
     player.experience -= xpForLevel(player.level);
     player.level++;
-    player.stats.maxHp += LEVEL_HP_GAIN;
-    player.stats.maxMp += LEVEL_MP_GAIN;
-    player.stats.hp = player.stats.maxHp;
+    player.stats.maxHp += 8 + Math.floor(player.stats.constitution * 0.5);
+    player.stats.maxMp += 4 + Math.floor(player.stats.intelligence * 0.3);
+    player.stats.hp = player.stats.maxHp; // Full heal on level up
     player.stats.mp = player.stats.maxMp;
-    player.stats.strength += LEVEL_STR_GAIN;
-    player.stats.dexterity += LEVEL_DEX_GAIN;
-    player.stats.intelligence += LEVEL_INT_GAIN;
-    player.stats.constitution += LEVEL_CON_GAIN;
-    leveledUp = true;
+    levelsGained++;
+    statPointsGained += STAT_POINTS_PER_LEVEL;
+    player.statPoints += STAT_POINTS_PER_LEVEL;
+
+    // Check for new skill unlocks
+    const unlocks = SKILL_UNLOCK_LEVELS[player.level];
+    if (unlocks) {
+      for (const slot of unlocks) {
+        if (!player.skillUnlocks.includes(slot)) {
+          player.skillUnlocks.push(slot);
+          newUnlocks.push(slot);
+        }
+      }
+    }
   }
-  return leveledUp;
+
+  return {
+    leveledUp: levelsGained > 0,
+    levelsGained,
+    newLevel: player.level,
+    statPointsGained,
+    totalStatPoints: player.statPoints,
+    newUnlocks,
+  };
 }

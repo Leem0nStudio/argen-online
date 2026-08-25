@@ -332,6 +332,124 @@ html, body, #root {
   50% { box-shadow: 0 0 8px rgba(212, 168, 67, 0.6); }
 }
 
+/* ===================== LEVEL UP TOAST ===================== */
+.levelup-toast {
+  position: absolute;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  background: rgba(10, 10, 15, 0.95);
+  border: 2px solid var(--text-gold);
+  border-radius: 12px;
+  padding: clamp(16px, 4vw, 24px);
+  text-align: center;
+  z-index: 400;
+  animation: levelupPop 0.5s ease-out;
+  pointer-events: none;
+}
+.levelup-toast-title {
+  font-size: clamp(1.5rem, 5vw, 2.5rem);
+  color: var(--text-gold);
+  font-weight: bold;
+  text-shadow: 0 0 20px rgba(212, 168, 67, 0.6);
+  margin-bottom: 6px;
+}
+.levelup-toast-unlock {
+  font-size: clamp(0.8rem, 2.5vw, 1rem);
+  color: #44aaff;
+  margin-bottom: 4px;
+}
+.levelup-toast-sub {
+  font-size: clamp(0.7rem, 2vw, 0.85rem);
+  color: var(--text-dim);
+}
+@keyframes levelupPop {
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+  60% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+/* ===================== STAT PANEL ===================== */
+.stat-btn-float {
+  position: absolute;
+  bottom: calc(70px + var(--safe-bottom));
+  left: 50%; transform: translateX(-50%);
+  padding: 8px 20px;
+  background: linear-gradient(135deg, #d4a843, #b8922e);
+  border: none; border-radius: 8px;
+  color: #1a1520; font-weight: bold; font-size: 0.9rem;
+  cursor: pointer; z-index: 105;
+  animation: statBtnPulse 2s ease-in-out infinite;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 44px;
+}
+@keyframes statBtnPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(212, 168, 67, 0.4); }
+  50% { box-shadow: 0 0 16px rgba(212, 168, 67, 0.8); }
+}
+
+.stat-panel {
+  background: rgba(26, 21, 32, 0.98);
+  border: 1px solid var(--border-gold);
+  border-radius: 12px;
+  padding: clamp(12px, 3vw, 20px);
+  width: clamp(300px, 85vw, 400px);
+  max-height: 85vh; overflow-y: auto;
+}
+.stat-panel-title {
+  text-align: center; font-size: clamp(1rem, 3vw, 1.2rem);
+  color: var(--text-gold); font-weight: bold; margin-bottom: 12px;
+}
+.stat-grid {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.stat-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px; background: var(--bg-dark); border-radius: 6px;
+}
+.stat-icon { font-size: 1.2rem; width: 28px; text-align: center; }
+.stat-info { flex: 1; }
+.stat-name { font-size: 0.85rem; color: var(--text-light); font-weight: bold; }
+.stat-desc { font-size: 0.65rem; color: var(--text-dim); }
+.stat-value {
+  font-size: 1rem; color: var(--text-gold); font-weight: bold;
+  min-width: 40px; text-align: center;
+}
+.stat-pending { color: #44ff44; margin-left: 2px; font-size: 0.8rem; }
+.stat-buttons { display: flex; gap: 2px; }
+.stat-btn {
+  width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border-dark);
+  background: var(--bg-panel); color: var(--text-light); font-size: 1.1rem;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.15s;
+}
+.stat-btn:active:not(:disabled) { border-color: var(--border-gold); }
+.stat-btn:disabled { opacity: 0.3; cursor: default; }
+
+.skill-unlock-section { margin-top: 12px; border-top: 1px solid var(--border-dark); padding-top: 8px; }
+.skill-unlock-title { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+.skill-unlock-row { display: flex; gap: 8px; justify-content: center; }
+.skill-unlock-slot {
+  width: 80px; padding: 6px; border-radius: 8px; text-align: center;
+  border: 1px solid var(--border-dark); background: var(--bg-dark);
+}
+.skill-unlock-slot.unlocked { border-color: var(--text-gold); background: rgba(212, 168, 67, 0.1); }
+.skill-unlock-slot.locked { opacity: 0.5; }
+.skill-unlock-icon { font-size: 1.3rem; }
+.skill-unlock-key { font-size: 0.6rem; color: var(--text-dim); font-weight: bold; }
+.skill-unlock-name { font-size: 0.6rem; color: var(--text-gold); margin-top: 2px; }
+.skill-unlock-req { font-size: 0.6rem; color: var(--hp-red); margin-top: 2px; }
+
+.xp-section { margin-top: 10px; }
+.xp-label { font-size: 0.7rem; color: var(--text-dim); margin-bottom: 3px; text-align: center; }
+
+.stat-panel-actions { margin-top: 12px; text-align: center; }
+.stat-confirm-btn {
+  padding: 10px 24px; background: linear-gradient(135deg, var(--text-gold), #b8922e);
+  border: none; border-radius: 6px; color: #1a1520; font-weight: bold;
+  font-size: 0.9rem; cursor: pointer; min-height: 44px;
+  transition: opacity 0.2s;
+}
+.stat-confirm-btn:disabled { opacity: 0.5; cursor: default; }
+
 /* ===================== MINIMAP ===================== */
 .minimap-container {
   position: absolute;
