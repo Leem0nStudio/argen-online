@@ -12,8 +12,8 @@
 | Weapons | PARTIAL | ítems con stats.damage + equip | CURRENT PROJECT BEHABIOR | catálogo chico (~10 ítems) |
 | Armor | PARTIAL | stats.defense + equip por slots | CURRENT PROJECT BEHAVIOR | |
 | Inventory | IMPLEMENTED | pickup/drop/equip/consumibles/loot verificados en juego | CURRENT PROJECT BEHAVIOR | grid fijo, sin peso AO-style |
-| Experience | PARTIAL | xp al matar monstruos (combat.ts) | CURRENT PROJECT BEHAVIOR | fórmula por verificar |
-| Leveling | PARTIAL | level sube, HP/MP no se recalculan al subir (verificar) | ASSUMPTION | revisar |
+| Experience | IMPLEMENTED | killMonster centralizada: XP en melee y skills, verificada con test | VERIFIED | curva level*100 |
+| Leveling | IMPLEMENTED | sube stats (HP+10 MP+5 STR+2 DEX+1 INT+1 CON+2), restaura HP/MP, mensaje global | VERIFIED | test unitario CHG-001 |
 | Death | PARTIAL | pantalla muerte + resurrección -50 oro | DIVERGENT | AO clásico pierde ítems; decidir política |
 | PvE | IMPLEMENTED | spawns, IA básica, loot | CURRENT PROJECT BEHAVIOR | |
 | PvP | NOT_STARTED | tryAttack técnicamente acepta jugadores pero sin reglas/flags | — | decidir modelo AO (seguro/criminal) antes |

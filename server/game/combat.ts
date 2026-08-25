@@ -127,6 +127,7 @@ export function tryAttack(attackerId: string, defenderId: string): DamageEvent |
       Players.markDead(defenderId);
       const goldDrop = Math.floor(defender.gold * GOLD_LOSS_ON_DEATH_PCT);
       defender.gold -= goldDrop;
+      attacker.gold += goldDrop; // the victor loots the fallen
     }
 
     return { attackerId, defenderId, damage, isCrit: crit, timestamp: now };

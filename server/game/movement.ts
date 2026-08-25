@@ -155,6 +155,6 @@ export function respawnPlayer(id: string) {
     player.y = 15;
   }
 
-  player.gold = Math.max(0, player.gold - 50);
+  player.gold = Math.max(0, player.gold - RESPAWN_GOLD_COST);
   player.buffs = [];
 }
