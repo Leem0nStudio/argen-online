@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/game/audio.ts","./src/game/engine.ts","./src/game/vfx.ts","./src/network/socket.ts","./src/ui/AuthScreen.tsx","./src/ui/ErrorBoundary.tsx","./src/ui/GameScreen.tsx","./src/ui/VirtualJoystick.tsx","./shared/constants.ts","./shared/items.ts","./shared/maps.ts","./shared/types.ts"],"version":"5.9.3"}

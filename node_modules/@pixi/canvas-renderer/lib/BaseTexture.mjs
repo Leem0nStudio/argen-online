@@ -1,0 +1,9 @@
+import { BaseTexture, BaseRenderTexture, Texture } from "@pixi/core";
+BaseTexture.prototype.getDrawableSource = function() {
+  const resource = this.resource;
+  return resource ? resource.bitmap || resource.source : null;
+};
+BaseRenderTexture.prototype._canvasRenderTarget = null;
+Texture.prototype.patternCache = null;
+Texture.prototype.tintCache = null;
+//# sourceMappingURL=BaseTexture.mjs.map

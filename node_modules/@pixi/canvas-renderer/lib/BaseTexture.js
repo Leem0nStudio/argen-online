@@ -1,0 +1,10 @@
+"use strict";
+var core = require("@pixi/core");
+core.BaseTexture.prototype.getDrawableSource = function() {
+  const resource = this.resource;
+  return resource ? resource.bitmap || resource.source : null;
+};
+core.BaseRenderTexture.prototype._canvasRenderTarget = null;
+core.Texture.prototype.patternCache = null;
+core.Texture.prototype.tintCache = null;
+//# sourceMappingURL=BaseTexture.js.map

@@ -1,0 +1,117 @@
+// ============================================================
+// Inventory System — Pickup, drop, equip, use consumables
+// ============================================================
+
+import { v4 as uuidv4 } from "uuid";
+import type { GroundItem, InventoryItem } from "../../shared/types.js";
+import { MAX_INVENTORY_SLOTS } from "../../shared/constants.js";
+import { ITEMS } from "../../shared/items.js";
+import { Players, Ground } from "./state.js";
+
+function findFreeSlot(inventory: InventoryItem[]): number {
+  const usedSlots = new Set(inventory.map(i => i.slot));
+  for (let s = 0; s < MAX_INVENTORY_SLOTS; s++) {
+    if (!usedSlots.has(s)) return s;
+  }
+  return -1;
+}
+
+export function pickupItem(playerId: string, groundItemId: string): boolean {
+  const player = Players.get(playerId);
+  const item = Ground.get(groundItemId);
+  if (!player || !item || item.mapId !== player.mapId) return false;
+  if (player.x !== item.x || player.y !== item.y) return false;
+
+  const itemDef = ITEMS[item.itemId];
+  if (!itemDef) return false;
+
+  const existing = player.inventory.find(i => i.itemId === item.itemId && itemDef.stackable);
+  if (existing) {
+    existing.quantity += item.quantity;
+  } else {
+    const newSlot = findFreeSlot(player.inventory);
+    if (newSlot === -1) return false;
+    player.inventory.push({ itemId: item.itemId, quantity: item.quantity, slot: newSlot });
+  }
+
+  Ground.delete(groundItemId);
+  return true;
+}
+
+export function dropItem(playerId: string, inventorySlot: number, quantity: number): GroundItem | null {
+  const player = Players.get(playerId);
+  if (!player) return null;
+
+  const invItem = player.inventory.find(i => i.slot === inventorySlot);
+  if (!invItem || invItem.quantity < quantity) return null;
+
+  const drop: GroundItem = {
+    id: uuidv4(), itemId: invItem.itemId, quantity,
+    x: player.x, y: player.y, mapId: player.mapId,
+  };
+
+  Ground.set(drop);
+  invItem.quantity -= quantity;
+  if (invItem.quantity <= 0) {
+    player.inventory = player.inventory.filter(i => i.slot !== inventorySlot);
+  }
+  return drop;
+}
+
+export function equipItem(playerId: string, inventorySlot: number): boolean {
+  const player = Players.get(playerId);
+  if (!player) return false;
+
+  const invItem = player.inventory.find(i => i.slot === inventorySlot);
+  if (!invItem) return false;
+
+  const itemDef = ITEMS[invItem.itemId];
+  if (!itemDef || !itemDef.slot) return false;
+
+  const slot = itemDef.slot as keyof typeof player.equipment;
+  const currentEquipped = player.equipment[slot];
+  if (currentEquipped) {
+    const newSlot = findFreeSlot(player.inventory);
+    if (newSlot !== -1) {
+      player.inventory.push({ itemId: currentEquipped, quantity: 1, slot: newSlot });
+    }
+  }
+
+  (player.equipment as Record<string, string | null>)[slot] = invItem.itemId;
+  player.inventory = player.inventory.filter(i => i.slot !== inventorySlot);
+  return true;
+}
+
+export function useConsumable(playerId: string, inventorySlot: number): boolean {
+  const player = Players.get(playerId);
+  if (!player) return false;
+
+  const invItem = player.inventory.find(i => i.slot === inventorySlot);
+  if (!invItem) return false;
+
+  const itemDef = ITEMS[invItem.itemId];
+  if (!itemDef || itemDef.type !== "consumable") return false;
+
+  if (itemDef.stats?.hp) {
+    player.stats.hp = Math.min(player.stats.maxHp, player.stats.hp + itemDef.stats.hp);
+  }
+  if (itemDef.stats?.mp) {
+    player.stats.mp = Math.min(player.stats.maxMp, player.stats.mp + itemDef.stats.mp);
+  }
+
+  invItem.quantity -= 1;
+  if (invItem.quantity <= 0) {
+    player.inventory = player.inventory.filter(i => i.slot !== inventorySlot);
+  }
+  return true;
+}
+
+export function dropMonsterLoot(monster: { loot: string[]; x: number; y: number; mapId: string }): void {
+  if (monster.loot.length > 0) {
+    const lootId = monster.loot[Math.floor(Math.random() * monster.loot.length)];
+    Ground.set({
+      id: uuidv4(), itemId: lootId, quantity: 1,
+      x: monster.x, y: monster.y, mapId: monster.mapId,
+    });
+  }
+}
