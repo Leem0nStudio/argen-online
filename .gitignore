@@ -1,0 +1,8 @@
+node_modules/
+dist/
+data/
+game.db
+game.db-shm
+game.db-wal
+*.tsbuildinfo
+.DS_Store
