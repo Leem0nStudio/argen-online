@@ -46,6 +46,13 @@ function sendMapState(socket: GameSocket, mapId: string) {
     mapId,
   });
   socket.emit("monsters:update", getMonstersAsData(mapId));
+  // Send full settlement map data so the client can render it
+  if (mapId !== "world") {
+    try {
+      const map = getWorldMap().getMap(mapId);
+      if (map) socket.emit("map:data", JSON.parse(JSON.stringify(map)));
+    } catch { /* world not ready */ }
+  }
   // Send procedural world data to client
   try {
     socket.emit("world:data", getWorldDataForClient());
@@ -103,6 +110,7 @@ export function setupHandlers(io: GameServer) {
       if (result.teleported) {
         const player = Players.get(playerId);
         if (player) {
+          socket.emit("player:update", { ...player } as any);
           sendMapState(socket, player.mapId);
           io.emit("players:list", getPlayersOnMap(player.mapId));
         }
@@ -143,6 +151,17 @@ export function setupHandlers(io: GameServer) {
       const event = tryAttack(playerId, targetId);
       if (!event) return;
       io.emit("combat:damage", event);
+
+      // Monster killed by melee: broadcast loot drop and level-up
+      if (event.xpGained !== undefined) {
+        const killer = Players.get(playerId);
+        if (killer) {
+          io.emit("groundItems:update", Ground.onMap(killer.mapId));
+          if (event.levelUp) {
+            io.emit("chat:message", addSystemMessage(`⚔️ ${killer.username} ha alcanzado el nivel ${killer.level}!`));
+          }
+        }
+      }
 
       const victim = Players.get(targetId);
       const monster = Monsters.get(targetId);
@@ -189,6 +208,10 @@ export function setupHandlers(io: GameServer) {
           damage: 0, isCrit: false, timestamp: Date.now(),
         });
       }
+
+      // Skill kills drop loot too — broadcast it
+      const caster = Players.get(playerId);
+      if (caster) io.emit("groundItems:update", Ground.onMap(caster.mapId));
 
       const player = Players.get(playerId);
       if (player) socket.emit("player:update", player);

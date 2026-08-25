@@ -107,7 +107,7 @@ export class WorldMapManager {
   private buildSettlementMaps() {
     for (const settlement of this.worldData.settlements) {
       const size = settlement.type === "capital" ? 30 : settlement.type === "city" ? 24 : settlement.type === "town" ? 18 : 14;
-      const mapId = `settlement_${settlement.id}`;
+      const mapId = settlement.id;
       const tiles = this.generateSettlementTiles(settlement, size);
       const decorations = this.generateSettlementDecorations(settlement, size);
       const npcs = this.generateSettlementNPCs(settlement, size);
@@ -172,6 +172,12 @@ export class WorldMapManager {
       grid[y][0] = WT.wall;
       grid[y][size - 1] = WT.wall;
     }
+
+    // North gate — carve opening matching the exit trigger zone
+    const gateMid = Math.floor(size / 2);
+    grid[0][gateMid - 1] = WT.path;
+    grid[0][gateMid] = WT.path;
+    grid[0][gateMid + 1] = WT.path;
 
     // Main roads (cross pattern)
     const mid = Math.floor(size / 2);
@@ -318,7 +324,7 @@ export class WorldMapManager {
 
   /** Get settlement map ID */
   getSettlementMapId(settlement: Settlement): string {
-    return `settlement_${settlement.id}`;
+    return settlement.id;
   }
 
   /** Generate a virtual "world" map (empty tile grid for client reference) */

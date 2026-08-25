@@ -93,6 +93,7 @@ export class GameEngine {
   // Procedural world mode
   isWorldMode = false;
   worldChunks = new Map<string, number[][]>();
+  worldChunkGfx = new Map<string, PIXI.Graphics>();
   localPlayer: PlayerState | null = null;
   otherPlayers: Map<string, PIXI.Container> = new Map();
   groundItemSprites: Map<string, PIXI.Container> = new Map();
@@ -172,6 +173,30 @@ export class GameEngine {
     window.addEventListener("keydown", this.handleKeyDown);
     window.addEventListener("keyup", this.handleKeyUp);
     this.app.ticker.add(this.update);
+
+    // FPS counter (toggle with "f" key or 3-finger tap)
+    const fpsText = new PIXI.Text("FPS --", { fontSize: 12, fill: 0x22ff44, fontFamily: "monospace" });
+    fpsText.position.set(8, (window.innerHeight || 600) - 24);
+    fpsText.visible = false;
+    this.uiContainer.addChild(fpsText);
+    this.fpsText = fpsText;
+    let frames = 0, last = performance.now();
+    this.app.ticker.add(() => {
+      frames++;
+      const now = performance.now();
+      if (now - last >= 1000) {
+        if (fpsText.visible) {
+          const ents = this.entityContainer.children.length;
+          const tiles = this.tileContainer.children.length;
+          fpsText.text = `FPS ${frames} | entidades ${ents} | tiles ${tiles}`;
+        }
+        frames = 0; last = now;
+      }
+    });
+    window.addEventListener("keydown", (e) => { if (e.key === "f") fpsText.visible = !fpsText.visible; });
+    window.addEventListener("touchstart", (e) => {
+      if (e.touches.length >= 3) fpsText.visible = !fpsText.visible;
+    }, { passive: true });
   }
 
   destroy() {
@@ -188,6 +213,7 @@ export class GameEngine {
     this.screenW = window.innerWidth;
     this.screenH = window.innerHeight;
     this.app.renderer.resize(this.screenW, this.screenH);
+    if (this.fpsText) this.fpsText.position.set(8, this.screenH - 24);
   };
 
   handleKeyDown = (e: KeyboardEvent) => this.keys.add(e.key.toLowerCase());
@@ -217,6 +243,20 @@ export class GameEngine {
       this.localPlayer.isMoving = false;
       this.onStop?.(this.localPlayer.x, this.localPlayer.y, this.localPlayer.direction);
     }
+  }
+
+  /** Id of the closest visible monster (in tiles), or null */
+  getNearestMonsterId(maxDist = 5): string | null {
+    if (!this.localPlayer) return null;
+    let best: string | null = null;
+    let bestD = maxDist;
+    for (const [id, c] of this.monsterSprites) {
+      const dx = c.x / TILE_SIZE - this.localPlayer.x;
+      const dy = c.y / TILE_SIZE - this.localPlayer.y;
+      const d = Math.hypot(dx, dy);
+      if (d < bestD) { bestD = d; best = id; }
+    }
+    return best;
   }
 
   private playFootstepFx(x: number, y: number) {
@@ -286,16 +326,25 @@ export class GameEngine {
 
   // ---- Map ----
 
-  loadMap(mapId: string) {
-    // Procedural world — tiles arrive via loadWorldChunk
+  registerMap(map: GameMap) {
+    MAPS[map.id] = map;
+    this.loadMap(map.id);
+  }
+
+  loadMap(mapId: string) {    // Procedural world — tiles arrive via loadWorldChunk
     if (mapId === "world") {
       this.isWorldMode = true;
       this.currentMap = null;
       this.worldChunks.clear();
+      for (const gfx of this.worldChunkGfx.values()) gfx.destroy({ children: true });
+      this.worldChunkGfx.clear();
+      this.lastRequestedChunkX = Number.NaN;
+      this.lastRequestedChunkY = Number.NaN;
       this.tileContainer.removeChildren();
       this.decoContainer.removeChildren();
       this.tileGraphics = [];
       this.ambientTiles.clear();
+      this.clearNPCs();
       this.onRequestChunks?.(this.localPlayer?.x ?? 2048, this.localPlayer?.y ?? 2048);
       return;
     }
@@ -315,7 +364,8 @@ export class GameEngine {
       for (let x = 0; x < map.width; x++) {
         const tileId = map.tiles[y]?.[x] ?? 0;
         const g = new PIXI.Graphics();
-        const color = TILE_COLORS[tileId] ?? 0x222222;
+        const useWorldPalette = mapId.startsWith("settlement_");
+        const color = (useWorldPalette ? WT_COLORS[tileId] : TILE_COLORS[tileId]) ?? TILE_COLORS[tileId] ?? 0x222222;
 
         g.beginFill(color);
         g.drawRect(0, 0, TILE_SIZE, TILE_SIZE);
@@ -735,15 +785,25 @@ export class GameEngine {
   setLocalPlayer(player: PlayerState) {
     this.localPlayer = player;
     this.loadMap(player.mapId);
-    this.updateCamera();
+    this.updateCamera(true);
     this.drawLocalPlayer();
   }
 
   updateLocalPlayer(player: PlayerState) {
     if (!this.localPlayer) return;
     const oldLevel = this.localPlayer.level;
+    const oldMapId = this.localPlayer.mapId;
+    const oldX = this.localPlayer.x, oldY = this.localPlayer.y;
     this.localPlayer = { ...player };
-    this.updateCamera();
+    if (player.mapId !== oldMapId) {
+      this.loadMap(player.mapId);
+      this.updateCamera(true);
+    } else if (Math.abs(player.x - oldX) > 1 || Math.abs(player.y - oldY) > 1) {
+      // Server corrected our position (teleport/respawn) — snap camera
+      this.updateCamera(true);
+    } else {
+      this.updateCamera();
+    }
     if (player.level > oldLevel) this.playLevelUpEffect();
   }
 
@@ -875,12 +935,17 @@ export class GameEngine {
 
   // ---- Camera ----
 
-  updateCamera() {
+  updateCamera(snap = false) {
     if (!this.localPlayer) return;
     const targetX = -(this.localPlayer.x * TILE_SIZE + TILE_SIZE / 2) + this.screenW / 2;
     const targetY = -(this.localPlayer.y * TILE_SIZE + TILE_SIZE / 2) + this.screenH / 2;
-    this.camera.x += (targetX - this.camera.x) * 0.15;
-    this.camera.y += (targetY - this.camera.y) * 0.15;
+    if (snap) {
+      this.camera.x = targetX;
+      this.camera.y = targetY;
+    } else {
+      this.camera.x += (targetX - this.camera.x) * 0.15;
+      this.camera.y += (targetY - this.camera.y) * 0.15;
+    }
     this.worldContainer.x = this.camera.x;
     this.worldContainer.y = this.camera.y;
   }
@@ -895,6 +960,19 @@ export class GameEngine {
     this.ambientTiles.update(this.animTime);
     this.particles.update(0.016);
     this.shake.update(0.016);
+
+    // Stream new world chunks when the player crosses a chunk boundary
+    if (this.isWorldMode) {
+      const crx = Math.floor(this.localPlayer.x / CHUNK_SIZE);
+      const cry = Math.floor(this.localPlayer.y / CHUNK_SIZE);
+      if (crx !== this.lastRequestedChunkX || cry !== this.lastRequestedChunkY) {
+        this.lastRequestedChunkX = crx;
+        this.lastRequestedChunkY = cry;
+        this.cullDistantChunks(crx, cry);
+        this.onRequestChunks?.(this.localPlayer.x, this.localPlayer.y);
+      }
+      this.updateCamera();
+    }
 
     const now = Date.now();
     if (now - this.lastMoveTime < this.MOVE_INTERVAL) return;
@@ -940,9 +1018,11 @@ export class GameEngine {
       return !WT_BLOCKED.has(tile);
     }
     if (!this.currentMap) return false;
+    const settlementMode = this.currentMap.id.startsWith("settlement_");
     if (x < 0 || x >= this.currentMap.width || y < 0 || y >= this.currentMap.height) return false;
     const tile = this.currentMap.tiles[y]?.[x];
     if (tile === undefined) return false;
+    if (settlementMode) return !WT_BLOCKED.has(tile);
     return tile !== T.water && tile !== T.wall && tile !== T.tree &&
            tile !== T.deadTree && tile !== T.thorn && tile !== T.lava;
   }
@@ -953,53 +1033,67 @@ export class GameEngine {
     if (this.worldChunks.has(key)) return;
     this.worldChunks.set(key, tiles);
 
+    // Draw ALL tiles into a single Graphics object (huge perf win vs per-tile objects)
     const ox = rx * CHUNK_SIZE;
     const oy = ry * CHUNK_SIZE;
+    const g = new PIXI.Graphics();
     for (let ly = 0; ly < CHUNK_SIZE; ly++) {
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
         const tileId = tiles[ly]?.[lx] ?? WT.ocean;
-        const g = new PIXI.Graphics();
         const color = WT_COLORS[tileId] ?? 0x222222;
+        const px = lx * TILE_SIZE;
+        const py = ly * TILE_SIZE;
         g.beginFill(color);
-        g.drawRect(0, 0, TILE_SIZE, TILE_SIZE);
+        g.drawRect(px, py, TILE_SIZE, TILE_SIZE);
         g.endFill();
 
         // Cheap detail overlays per biome-ish tile
         if (tileId === WT.grass || tileId === WT.darkGrass || tileId === WT.flowerGrass || tileId === WT.plains) {
-          g.lineStyle(1, 0x3a7a2e, 0.3);
           const wx = ox + lx, wy = oy + ly;
+          g.lineStyle(1, 0x3a7a2e, 0.3);
           const seedCount = (wx * 7 + wy * 13) % 4;
           for (let i = 0; i < seedCount; i++) {
-            const gx = 4 + ((wx * 17 + i * 11) % 24);
-            const gy = 4 + ((wy * 19 + i * 7) % 24);
+            const gx = px + 4 + ((wx * 17 + i * 11) % 24);
+            const gy = py + 4 + ((wy * 19 + i * 7) % 24);
             g.moveTo(gx, gy + 4); g.lineTo(gx + 1, gy);
           }
           g.lineStyle(0);
           if (tileId === WT.flowerGrass && (wx + wy) % 3 === 0) {
             g.beginFill((wx % 2 === 0) ? 0xff4444 : 0xffdd44, 0.6);
-            g.drawCircle(10 + (wx * 5) % 12, 10 + (wy * 3) % 12, 2);
+            g.drawCircle(px + 10 + (wx * 5) % 12, py + 10 + (wy * 3) % 12, 2);
             g.endFill();
           }
         } else if (tileId === WT.forest || tileId === WT.denseForest || tileId === WT.taiga || tileId === WT.jungle) {
           // Simple tree canopy dot
           g.beginFill(tileId === WT.jungle ? 0x0e6a0e : 0x2a5a18, 0.5);
-          g.drawCircle(TILE_SIZE / 2 + ((ox + lx) % 5) - 2, TILE_SIZE / 2 + ((oy + ly) % 5) - 2, 9);
+          g.drawCircle(px + TILE_SIZE / 2 + ((ox + lx) % 5) - 2, py + TILE_SIZE / 2 + ((oy + ly) % 5) - 2, 9);
           g.endFill();
         } else if (tileId === WT.mountain || tileId === WT.highMountain || tileId === WT.snowPeak) {
           // Ridge highlight
           g.lineStyle(2, 0xffffff, tileId === WT.snowPeak ? 0.35 : 0.15);
-          g.moveTo(4, TILE_SIZE - 4); g.lineTo(TILE_SIZE / 2, 4); g.lineTo(TILE_SIZE - 4, TILE_SIZE - 4);
+          g.moveTo(px + 4, py + TILE_SIZE - 4); g.lineTo(px + TILE_SIZE / 2, py + 4); g.lineTo(px + TILE_SIZE - 4, py + TILE_SIZE - 4);
           g.lineStyle(0);
         } else if (tileId === WT.dirtRoad || tileId === WT.stoneRoad || tileId === WT.path) {
           g.beginFill(tileId === WT.stoneRoad ? 0x8a8a7a : 0x9a8060, 0.25);
-          g.drawCircle(8 + (ox * 3 + lx) % 12, 8 + (oy * 5 + ly) % 16, 2);
+          g.drawCircle(px + 8 + (ox * 3 + lx) % 12, py + 8 + (oy * 5 + ly) % 16, 2);
           g.endFill();
         }
+      }
+    }
+    g.x = ox * TILE_SIZE;
+    g.y = oy * TILE_SIZE;
+    this.tileContainer.addChild(g);
+    this.worldChunkGfx.set(key, g);
+  }
 
-        g.x = (ox + lx) * TILE_SIZE;
-        g.y = (oy + ly) * TILE_SIZE;
-        this.tileContainer.addChild(g);
-        this.tileGraphics.push(g);
+  /** Destroy chunks farther than KEEP_RADIUS from the player's chunk */
+  cullDistantChunks(prx: number, pry: number, keepRadius = 3) {
+    for (const [key, gfx] of this.worldChunkGfx) {
+      const [crx, cry] = key.split(",").map(Number);
+      if (Math.abs(crx - prx) > keepRadius || Math.abs(cry - pry) > keepRadius) {
+        gfx.destroy({ children: true });
+        this.worldChunkGfx.delete(key);
+        this.worldChunks.delete(key);
       }
     }
   }
@@ -1008,7 +1102,10 @@ export class GameEngine {
 
   // ---- Local Player ----
 
+  private fpsText: PIXI.Text | null = null;
   private localPlayerGfx: PIXI.Container | null = null;
+  private lastRequestedChunkX = Number.NaN;
+  private lastRequestedChunkY = Number.NaN;
 
   drawLocalPlayer() {
     if (!this.localPlayer) return;

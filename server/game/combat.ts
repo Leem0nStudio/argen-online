@@ -10,7 +10,8 @@ import {
   BASE_DAMAGE, CRIT_CHANCE_BASE, CRIT_MULTIPLIER,
   ATTACK_COOLDOWN_MS, ATTACK_RANGE, GOLD_LOSS_ON_DEATH_PCT,
 } from "../../shared/constants.js";
-import { Players, Monsters, AttackCooldowns, type ActivePlayer, type Monster } from "./state.js";
+import { Players, Monsters, AttackCooldowns, Ground, type ActivePlayer, type Monster } from "./state.js";
+import { v4 as uuidv4 } from "uuid";
 
 // ---- Stats ----
 
@@ -169,13 +170,38 @@ export function attackMonster(playerId: string, monsterId: string): DamageEvent 
   const event: DamageEvent = { attackerId: playerId, defenderId: monsterId, damage, isCrit: crit, timestamp: now };
 
   if (monster.hp <= 0) {
-    monster.lastDeath = now;
-    monster.hp = 0;
-    monster.targetId = null;
-    monster.aiState = "idle";
+    const rewards = killMonster(player, monster, now);
+    event.xpGained = rewards.xpGained;
+    event.levelUp = rewards.levelUp;
   }
 
   return event;
+}
+
+/**
+ * Centralized monster death: grants XP to the killer, drops loot on the
+ * ground and resets the monster state for respawn. All kill paths (melee,
+ * single-target skills, AoE) must go through here.
+ */
+export function killMonster(killer: ActivePlayer, monster: Monster, now = Date.now()): { xpGained: number; levelUp: boolean } {
+  const xpGained = monster.xpReward;
+  const levelUp = grantXp(killer, xpGained);
+
+  // Drop loot — one random item from the loot table
+  if (monster.loot.length > 0) {
+    const lootId = monster.loot[Math.floor(Math.random() * monster.loot.length)];
+    Ground.set({
+      id: uuidv4(), itemId: lootId, quantity: 1,
+      x: monster.x, y: monster.y, mapId: monster.mapId,
+    });
+  }
+
+  monster.lastDeath = now;
+  monster.hp = 0;
+  monster.targetId = null;
+  monster.aiState = "idle";
+
+  return { xpGained, levelUp };
 }
 
 // ---- Monster vs Player ----

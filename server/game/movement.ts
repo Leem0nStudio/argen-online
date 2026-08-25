@@ -4,16 +4,34 @@
 // ============================================================
 
 import type { Direction } from "../../shared/types.js";
+import { RESPAWN_GOLD_COST } from "../../shared/constants.js";
 import { MAPS, T } from "../../shared/maps.js";
+import { WT } from "../../shared/world-gen.js";
 import { Players, SpawnState } from "./state.js";
 import { spawnMonstersForMap } from "./monster-ai.js";
 import { getWorldMap } from "./world.js";
+
+const SETTLEMENT_BLOCKED = new Set<number>([
+  WT.wall, WT.lava,
+  WT.deepOcean, WT.ocean,
+  WT.mountain, WT.highMountain, WT.snowPeak,
+]);
 
 export function canMoveTo(mapId: string, x: number, y: number): boolean {
   // ---- Procedural world ----
   if (mapId === "world") {
     const wm = getWorldMap();
     return wm.isWalkable(x, y);
+  }
+
+  // ---- Procedural settlement maps ----
+  if (mapId.startsWith("settlement_")) {
+    const map = getWorldMap().getMap(mapId);
+    if (!map) return false;
+    if (x < 0 || x >= map.width || y < 0 || y >= map.height) return false;
+    const tile = map.tiles[y]?.[x];
+    if (tile === undefined) return false;
+    return !SETTLEMENT_BLOCKED.has(tile);
   }
 
   // ---- Legacy handcrafted maps ----

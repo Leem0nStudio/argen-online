@@ -1,115 +1,161 @@
-import { useRef, useCallback, useState } from "react";
+import { useRef, useState, useCallback } from "react";
 import { Direction } from "@shared/types";
 
 interface Props {
   onMove: (dx: number, dy: number, direction: Direction) => void;
   onRelease: () => void;
+  onAttack?: () => void;
 }
 
 const DEAD_ZONE = 0.25;
-const STICK_RADIUS = 48;
+const STICK_RADIUS = 46;
+const REPEAT_MS = 150;
 
-export default function VirtualJoystick({ onMove, onRelease }: Props) {
-  const baseRef = useRef<HTMLDivElement>(null);
+export default function VirtualJoystick({ onMove, onRelease, onAttack }: Props) {
+  const repeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const touchIdRef = useRef<number | null>(null);
   const originRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isDragging = useRef(false);
-  const [stickOffset, setStickOffset] = useState({ x: 0, y: 0 });
+  const [basePos, setBasePos] = useState<{ x: number; y: number } | null>(null);
+  const [knob, setKnob] = useState({ x: 0, y: 0 });
 
-  const clearMovementInterval = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+  const clearRepeat = useCallback(() => {
+    if (repeatRef.current) {
+      clearInterval(repeatRef.current);
+      repeatRef.current = null;
     }
   }, []);
 
-  const startMovementInterval = useCallback((dx: number, dy: number, dir: Direction) => {
-    clearMovementInterval();
+  const startDir = useCallback((dx: number, dy: number, dir: Direction) => {
+    clearRepeat();
     onMove(dx, dy, dir);
-    intervalRef.current = setInterval(() => {
-      onMove(dx, dy, dir);
-    }, 150);
-  }, [onMove, clearMovementInterval]);
+    repeatRef.current = setInterval(() => onMove(dx, dy, dir), REPEAT_MS);
+  }, [onMove, clearRepeat]);
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
+  const endDir = useCallback(() => {
+    clearRepeat();
+    onRelease();
+  }, [onRelease, clearRepeat]);
+
+  // ---- Analog joystick (dynamic: appears where the finger lands, left half) ----
+
+  const handleZoneTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     if (touchIdRef.current !== null) return;
     const touch = e.changedTouches[0];
     touchIdRef.current = touch.identifier;
-
-    const rect = baseRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    originRef.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    isDragging.current = true;
+    originRef.current = { x: touch.clientX, y: touch.clientY };
+    setBasePos({ x: touch.clientX, y: touch.clientY });
+    setKnob({ x: 0, y: 0 });
   }, []);
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    if (!isDragging.current) return;
+  const handleZoneTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (touchIdRef.current === null) return;
     for (const touch of Array.from(e.changedTouches)) {
       if (touch.identifier !== touchIdRef.current) continue;
       const dx = touch.clientX - originRef.current.x;
       const dy = touch.clientY - originRef.current.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const clampedDist = Math.min(dist, STICK_RADIUS);
+      const dist = Math.hypot(dx, dy);
+      const clamped = Math.min(dist, STICK_RADIUS);
       const angle = Math.atan2(dy, dx);
-      const sx = Math.cos(angle) * clampedDist;
-      const sy = Math.sin(angle) * clampedDist;
-      setStickOffset({ x: sx, y: sy });
+      setKnob({ x: Math.cos(angle) * clamped, y: Math.sin(angle) * clamped });
 
       if (dist > DEAD_ZONE * STICK_RADIUS) {
         let dir: Direction;
-        if (Math.abs(dx) > Math.abs(dy)) {
-          dir = dx > 0 ? Direction.Right : Direction.Left;
-        } else {
-          dir = dy > 0 ? Direction.Down : Direction.Up;
-        }
-        const normX = sx / STICK_RADIUS;
-        const normY = sy / STICK_RADIUS;
-        const moveDx = Math.abs(normX) > 0.4 ? (normX > 0 ? 1 : -1) : 0;
-        const moveDy = Math.abs(normY) > 0.4 ? (normY > 0 ? 1 : -1) : 0;
-        if (moveDx !== 0 || moveDy !== 0) {
-          startMovementInterval(moveDx, moveDy, dir);
+        if (Math.abs(dx) > Math.abs(dy)) dir = dx > 0 ? Direction.Right : Direction.Left;
+        else dir = dy > 0 ? Direction.Down : Direction.Up;
+        const nx = dx / STICK_RADIUS;
+        const ny = dy / STICK_RADIUS;
+        const mx = Math.abs(nx) > 0.4 ? (nx > 0 ? 1 : -1) : 0;
+        const my = Math.abs(ny) > 0.4 ? (ny > 0 ? 1 : -1) : 0;
+        if (mx !== 0 || my !== 0) {
+          // throttle to engine pace without stacking intervals
+          clearRepeat();
+          onMove(mx, my, dir);
+          repeatRef.current = setInterval(() => onMove(mx, my, dir), REPEAT_MS);
         }
       } else {
-        clearMovementInterval();
+        clearRepeat();
+        onRelease();
       }
     }
-  }, [startMovementInterval, clearMovementInterval]);
+  }, [onMove, onRelease, clearRepeat]);
 
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
+  const handleZoneTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     for (const touch of Array.from(e.changedTouches)) {
       if (touch.identifier !== touchIdRef.current) continue;
       touchIdRef.current = null;
-      isDragging.current = false;
-      setStickOffset({ x: 0, y: 0 });
-      clearMovementInterval();
+      setBasePos(null);
+      setKnob({ x: 0, y: 0 });
+      clearRepeat();
       onRelease();
     }
-  }, [onRelease, clearMovementInterval]);
-
-  const handleDpad = useCallback((dx: number, dy: number) => {
-    let dir: Direction;
-    if (dx > 0) dir = Direction.Right;
-    else if (dx < 0) dir = Direction.Left;
-    else if (dy > 0) dir = Direction.Down;
-    else dir = Direction.Up;
-    onMove(dx, dy, dir);
-  }, [onMove]);
+  }, [onRelease, clearRepeat]);
 
   return (
-    <div className="mobile-controls">
-      <div className="dpad-container">
-        <button className="dpad-btn dpad-up" onTouchStart={(e) => { e.preventDefault(); handleDpad(0, -1); }} aria-label="Up">▲</button>
-        <button className="dpad-btn dpad-left" onTouchStart={(e) => { e.preventDefault(); handleDpad(-1, 0); }} aria-label="Left">◄</button>
-        <div className="dpad-center" />
-        <button className="dpad-btn dpad-right" onTouchStart={(e) => { e.preventDefault(); handleDpad(1, 0); }} aria-label="Right">►</button>
-        <button className="dpad-btn dpad-down" onTouchStart={(e) => { e.preventDefault(); handleDpad(0, 1); }} aria-label="Down">▼</button>
-      </div>
+    <>
+      {/* Analog joystick capture zone — left half of the screen */}
+      <div
+        className="joystick-zone"
+        onTouchStart={handleZoneTouchStart}
+        onTouchMove={handleZoneTouchMove}
+        onTouchEnd={handleZoneTouchEnd}
+        onTouchCancel={handleZoneTouchEnd}
+      />
+      {basePos && (
+        <div
+          className="joystick-base"
+          style={{ left: basePos.x - 60, top: basePos.y - 60 }}
+        >
+          <div
+            className="joystick-knob"
+            style={{ transform: `translate(${knob.x}px, ${knob.y}px)` }}
+          />
+        </div>
+      )}
 
-      <button className="mobile-attack-btn" aria-label="Attack">⚔️</button>
-    </div>
+      {/* D-Pad with hold-to-repeat */}
+      <div className="mobile-controls">
+        <div className="dpad-container">
+          <button
+            className="dpad-btn dpad-up" aria-label="Arriba"
+            onTouchStart={(e) => { e.preventDefault(); startDir(0, -1, Direction.Up); }}
+            onTouchEnd={(e) => { e.preventDefault(); endDir(); }}
+            onTouchCancel={endDir}
+            onPointerDown={(e) => { if (e.pointerType === "mouse") startDir(0, -1, Direction.Up); }}
+            onPointerUp={() => endDir()}
+          >▲</button>
+          <button
+            className="dpad-btn dpad-left" aria-label="Izquierda"
+            onTouchStart={(e) => { e.preventDefault(); startDir(-1, 0, Direction.Left); }}
+            onTouchEnd={(e) => { e.preventDefault(); endDir(); }}
+            onTouchCancel={endDir}
+            onPointerDown={(e) => { if (e.pointerType === "mouse") startDir(-1, 0, Direction.Left); }}
+            onPointerUp={() => endDir()}
+          >◄</button>
+          <div className="dpad-center" />
+          <button
+            className="dpad-btn dpad-right" aria-label="Derecha"
+            onTouchStart={(e) => { e.preventDefault(); startDir(1, 0, Direction.Right); }}
+            onTouchEnd={(e) => { e.preventDefault(); endDir(); }}
+            onTouchCancel={endDir}
+            onPointerDown={(e) => { if (e.pointerType === "mouse") startDir(1, 0, Direction.Right); }}
+            onPointerUp={() => endDir()}
+          >►</button>
+          <button
+            className="dpad-btn dpad-down" aria-label="Abajo"
+            onTouchStart={(e) => { e.preventDefault(); startDir(0, 1, Direction.Down); }}
+            onTouchEnd={(e) => { e.preventDefault(); endDir(); }}
+            onTouchCancel={endDir}
+            onPointerDown={(e) => { if (e.pointerType === "mouse") startDir(0, 1, Direction.Down); }}
+            onPointerUp={() => endDir()}
+          >▼</button>
+        </div>
+
+        <button
+          className="mobile-attack-btn" aria-label="Atacar"
+          onTouchStart={(e) => { e.preventDefault(); onAttack?.(); }}
+          onClick={() => onAttack?.()}
+        >⚔️</button>
+      </div>
+    </>
   );
 }

@@ -273,6 +273,10 @@ export function drawEnhancedCharacter(
   level: number,
   username?: string,
 ) {
+  // Skip full rebuild when nothing visually changed (big perf win)
+  const sig = `${username || name}|${level}|${charClass}|${isLocal ? 1 : 0}|${color}|${Math.round(hpPct * 20)}`;
+  if ((container as any)._vfxSig === sig) return;
+  (container as any)._vfxSig = sig;
   container.removeChildren();
 
   const bodyColor = color;
@@ -451,6 +455,9 @@ const MONSTER_VISUALS: Record<string, { bodyColor: number; eyeColor: number; sha
 };
 
 export function drawEnhancedMonster(container: PIXI.Container, name: string, hpPct: number) {
+  const sig = `m|${name}|${Math.round(hpPct * 20)}`;
+  if ((container as any)._vfxSig === sig) return;
+  (container as any)._vfxSig = sig;
   container.removeChildren();
   const vis = MONSTER_VISUALS[name] ?? { bodyColor: 0xaa3333, eyeColor: 0xff0000, shape: "default" };
 
@@ -549,6 +556,9 @@ const ITEM_GLOW_COLORS: Record<string, number> = {
 };
 
 export function drawEnhancedItem(container: PIXI.Container, name: string, rarity: string = "common") {
+  const sig = `i|${name}|${rarity}`;
+  if ((container as any)._vfxSig === sig) return;
+  (container as any)._vfxSig = sig;
   container.removeChildren();
   const glowColor = ITEM_GLOW_COLORS[rarity] ?? 0xffdd44;
 

@@ -210,6 +210,9 @@ export interface DamageEvent {
   damage: number;
   isCrit: boolean;
   timestamp: number;
+  /** Present when the defender was a monster that died from this hit */
+  xpGained?: number;
+  levelUp?: boolean;
 }
 
 export interface SkillEvent {
@@ -294,6 +297,7 @@ export interface ServerEvents {
   "world:data": (data: WorldMetaData) => void;
   "world:chunk": (data: { rx: number; ry: number; tiles: number[][] }) => void;
   "player:levelup": (data: { level: number; statPoints: number; newUnlocks: string[] }) => void;
+  "map:data": (map: GameMap) => void;
 }
 
 // ---- World Generation Types ----

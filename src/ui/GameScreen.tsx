@@ -97,7 +97,6 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
         const engine = new GameEngine(canvasRef.current);
         if (cancelled) { engine.destroy(); return; }
         engineRef.current = engine;
-        engine.setLocalPlayer(player);
 
         engine.onMove = (x, y, dir) => getSocket().emit("player:move", { x, y, direction: dir });
         engine.onStop = (x, y, dir) => getSocket().emit("player:stop", { x, y, direction: dir });
@@ -108,6 +107,8 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
           getSocket().emit("combat:attack", targetId);
         };
         engine.onRequestChunks = (wx, wy) => getSocket().emit("world:request", { wx, wy, radius: 120 });
+
+        engine.setLocalPlayer(player);
         setEngineReady(true);
       } catch (err: any) {
         console.error("[GameScreen] Engine init failed:", err);
@@ -132,6 +133,10 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
     };
     const onPlayerLeave = (id: string) => engineRef.current?.removeOtherPlayer(id);
     const onPlayersList = (players: PlayerState[]) => {
+      const ids = new Set(players.map((p) => p.id));
+      for (const id of Array.from(engineRef.current?.otherPlayers.keys() ?? [])) {
+        if (!ids.has(id)) engineRef.current?.removeOtherPlayer(id);
+      }
       for (const p of players) { if (p.id !== player.id) engineRef.current?.addOtherPlayer(p); }
     };
     const onChatMessage = (msg: ChatMessage) => setChatMessages((prev) => [...prev.slice(-50), msg]);
@@ -183,6 +188,9 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
       setLevelUpToast({ level: data.level, newUnlocks: data.newUnlocks });
       setTimeout(() => setLevelUpToast(null), 4000);
     };
+    const onMapData = (map: import("@shared/types").GameMap) => {
+      engineRef.current?.registerMap(map);
+    };
 
     socket.on("player:update", onPlayerUpdate);
     socket.on("player:move", onPlayerMove);
@@ -199,6 +207,7 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
     socket.on("world:data", onWorldData);
     socket.on("world:chunk", onWorldChunk);
     socket.on("player:levelup", onLevelUp);
+    socket.on("map:data", onMapData);
 
     return () => {
       socket.off("player:update", onPlayerUpdate);
@@ -216,6 +225,7 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
       socket.off("world:data", onWorldData);
       socket.off("world:chunk", onWorldChunk);
       socket.off("player:levelup", onLevelUp);
+      socket.off("map:data", onMapData);
     };
   }, [player.id]);
 
@@ -256,6 +266,11 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
   const handleJoystickRelease = useCallback(() => {
     engineRef.current?.stopFromJoystick();
   }, []);
+
+  const handleMobileAttack = useCallback(() => {
+    const target = selectedTarget ?? engineRef.current?.getNearestMonsterId() ?? undefined;
+    if (target) getSocket().emit("combat:attack", target);
+  }, [selectedTarget]);
 
   const zone = (() => {
     const m = player.mapId;
@@ -419,7 +434,7 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
 
       {/* Mobile Virtual Controls */}
       {isMobile && !chatFocused && !npcPanel && !showInventory && !deathScreen && (
-        <VirtualJoystick onMove={handleJoystickMove} onRelease={handleJoystickRelease} />
+        <VirtualJoystick onMove={handleJoystickMove} onRelease={handleJoystickRelease} onAttack={handleMobileAttack} />
       )}
 
       {/* Inventory Panel */}

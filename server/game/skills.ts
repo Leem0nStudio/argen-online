@@ -5,9 +5,8 @@
 import type { SkillEvent } from "../../shared/types.js";
 import { SKILLS, MapZone } from "../../shared/types.js";
 import { MAPS } from "../../shared/maps.js";
-import { v4 as uuidv4 } from "uuid";
-import { Players, Monsters, Ground, type ActivePlayer } from "./state.js";
-import { getEffectiveStrength, getArmorDefense, cleanBuffs, hasInvuln, grantXp } from "./combat.js";
+import { Players, Monsters, type ActivePlayer } from "./state.js";
+import { getEffectiveStrength, getArmorDefense, cleanBuffs, hasInvuln, grantXp, killMonster } from "./combat.js";
 
 function getTargetX(targetId: string): number {
   const m = Monsters.get(targetId);
@@ -89,17 +88,7 @@ export function useSkill(playerId: string, skillId: string, targetId?: string): 
         const totalDmg = skill.damage + Math.floor(getEffectiveStrength(player) * 0.5);
         monster.hp -= totalDmg;
         if (monster.hp <= 0) {
-          grantXp(player, monster.xpReward);
-          // Drop loot
-          if (monster.loot.length > 0) {
-            const lootId = monster.loot[Math.floor(Math.random() * monster.loot.length)];
-            Ground.set({
-              id: uuidv4(), itemId: lootId, quantity: 1,
-              x: monster.x, y: monster.y, mapId: monster.mapId,
-            });
-          }
-          monster.lastDeath = now;
-          monster.hp = 0;
+          killMonster(player, monster, now);
         }
       }
     }
@@ -116,9 +105,7 @@ export function useSkill(playerId: string, skillId: string, targetId?: string): 
       const totalDmg = skill.damage + Math.floor(getEffectiveStrength(player) * 0.3);
       dmgMonster.hp -= totalDmg;
       if (dmgMonster.hp <= 0) {
-        grantXp(player, dmgMonster.xpReward);
-        dmgMonster.lastDeath = now;
-        dmgMonster.hp = 0;
+        killMonster(player, dmgMonster, now);
       }
     }
 

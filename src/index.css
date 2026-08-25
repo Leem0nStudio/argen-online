@@ -199,11 +199,39 @@ html, body, #root {
   transform: scale(0.92);
 }
 
+/* Analog joystick */
+.joystick-zone {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 50%;
+  z-index: 105;
+  touch-action: none;
+}
+.joystick-base {
+  position: fixed;
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  background: rgba(10, 10, 15, 0.35);
+  border: 2px solid rgba(139, 115, 85, 0.5);
+  z-index: 115;
+  pointer-events: none;
+}
+.joystick-knob {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 52px; height: 52px;
+  margin-left: -26px; margin-top: -26px;
+  border-radius: 50%;
+  background: rgba(139, 115, 85, 0.55);
+  border: 2px solid rgba(224, 213, 193, 0.6);
+}
+
 /* ===================== DESKTOP OVERRIDES ===================== */
-@media (min-width: 768px) {
+@media (hover: hover) and (pointer: fine) and (min-width: 768px) {
   .hud-info-desktop { display: inline; }
   .dpad-container, .mobile-attack-btn { display: none; }
   .mobile-controls { display: none; }
+  .joystick-zone { display: none; }
 }
 
 @media (max-width: 767px) {
