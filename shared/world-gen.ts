@@ -449,8 +449,10 @@ export class WorldGenerator {
   classifyTile(wx: number, wy: number): number {
     const biome = this.classifyBiome(wx, wy);
     const elev = this.getElevation(wx, wy);
+    const rain = this.getRainfall(wx, wy);
     const n = this.noise;
     const variation = (n.simple(wx, wy, 0.05) + 1) / 2; // [0,1]
+    const vegDensity = (rain - 0.3) * 1.2; // -0.3..0.8 → higher rain = denser
 
     // Check for rivers (done separately in hydrology)
     // For now, classify by biome + elevation
@@ -463,17 +465,17 @@ export class WorldGenerator {
       case "deep_ocean": return WT.deepOcean;
       case "ocean": return WT.ocean;
       case "beach": return slope > 0.08 ? WT.sand : WT.beach;
-      case "tundra": return variation > 0.55 ? WT.tundra : WT.savanna;
-      case "taiga": return variation > 0.6 ? WT.taiga : WT.tundra;
-      case "boreal_forest": return variation > 0.5 ? WT.forest : WT.taiga;
+      case "tundra": return variation > 0.55 - vegDensity * 0.1 ? WT.tundra : WT.savanna;
+      case "taiga": return variation > 0.6 - vegDensity * 0.15 ? WT.taiga : WT.tundra;
+      case "boreal_forest": return vegDensity > 0.25 ? (variation > 0.5 ? WT.forest : WT.taiga) : WT.tundra;
       case "cold_desert": return variation > 0.6 ? WT.desert : WT.sand;
-      case "wetland": return variation > 0.5 ? WT.swamp : WT.darkGrass;
-      case "desert": return variation > 0.65 ? WT.desert : WT.sand;
-      case "savanna": return variation > 0.7 ? WT.savanna : WT.plains;
-      case "jungle": return slope > 0.06 ? WT.denseForest : WT.jungle;
-      case "dense_forest": return WT.denseForest;
-      case "forest": return variation > 0.5 ? WT.forest : WT.darkGrass;
-      case "grassland": return variation > 0.6 ? WT.flowerGrass : WT.grass;
+      case "wetland": return vegDensity > 0.4 ? WT.swamp : variation > 0.5 ? WT.darkGrass : WT.grass;
+      case "desert": return variation > 0.65 - vegDensity * 0.2 ? WT.desert : WT.sand;
+      case "savanna": return vegDensity > 0.35 ? (variation > 0.7 ? WT.savanna : WT.plains) : WT.plains;
+      case "jungle": return slope > 0.06 ? WT.denseForest : (vegDensity > 0.5 ? WT.jungle : WT.forest);
+      case "dense_forest": return vegDensity > 0.3 ? WT.denseForest : WT.forest;
+      case "forest": return vegDensity > 0.15 ? (variation > 0.5 ? WT.forest : WT.darkGrass) : WT.grass;
+      case "grassland": return vegDensity > 0.2 ? (variation > 0.6 ? WT.flowerGrass : WT.grass) : WT.plains;
       case "plains": return slope > 0.07 ? WT.hills : WT.plains;
       case "drylands": return variation > 0.5 ? WT.sand : WT.grass;
       case "hills": return slope > 0.09 ? WT.rockyHills : WT.hills;
@@ -485,73 +487,28 @@ export class WorldGenerator {
     }
   }
 
-  // ---- Rivers (Flow Accumulation) ----
+  // ---- Rivers (continuous inter-chunk via global ridged noise) ----
+
+  private isRiverTile(wx: number, wy: number): boolean {
+    const elev = this.getElevation(wx, wy);
+    if (elev < ELEVATION.BEACH || elev > ELEVATION.LOWLAND + 0.12) return false;
+    const rain = this.getRainfall(wx, wy);
+    if (rain < 0.52) return false;
+    const ridge = this.noise.ridged(wx, wy, { octaves: 2, frequency: 0.0016, gain: 0.5 });
+    if (ridge < 0.86) return false;
+    const warp = this.noise.simple(wx * 0.004, wy * 0.004, 0.015) * 0.03;
+    return ridge + warp > 0.88;
+  }
 
   computeRiverMap(rx: number, ry: number): boolean[][] {
-    const elev = this.getElevationChunk(rx, ry);
-    const chunk = Array.from({ length: CHUNK_SIZE }, () =>
-      Array(CHUNK_SIZE).fill(false)
-    );
-
-    // Flow accumulation: each cell flows to its lowest neighbor
-    // We only compute river paths where accumulation is high enough
-    const accumulation = Array.from({ length: CHUNK_SIZE }, () =>
-      Array(CHUNK_SIZE).fill(0)
-    );
-
-    // Initialize with 1 per cell
+    const chunk = Array.from({ length: CHUNK_SIZE }, () => Array(CHUNK_SIZE).fill(false));
     for (let ly = 0; ly < CHUNK_SIZE; ly++) {
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-        accumulation[ly][lx] = 1;
+        const wx = rx * CHUNK_SIZE + lx;
+        const wy = ry * CHUNK_SIZE + ly;
+        if (this.isRiverTile(wx, wy)) chunk[ly][lx] = true;
       }
     }
-
-    // Simple flow: for each cell, add its accumulation to its lowest neighbor
-    // Process in elevation order (highest first)
-    const cells: { lx: number; ly: number; e: number }[] = [];
-    for (let ly = 0; ly < CHUNK_SIZE; ly++) {
-      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-        cells.push({ lx, ly, e: elev[ly][lx] });
-      }
-    }
-    cells.sort((a, b) => b.e - a.e);
-
-    for (const cell of cells) {
-      const { lx, ly } = cell;
-      let lowestLx = lx;
-      let lowestLy = ly;
-      let lowestE = elev[ly][lx];
-
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if (dx === 0 && dy === 0) continue;
-          const nx = lx + dx;
-          const ny = ly + dy;
-          if (nx < 0 || nx >= CHUNK_SIZE || ny < 0 || ny >= CHUNK_SIZE) continue;
-          if (elev[ny][nx] < lowestE) {
-            lowestE = elev[ny][nx];
-            lowestLx = nx;
-            lowestLy = ny;
-          }
-        }
-      }
-
-      // If flow goes to a neighbor
-      if (lowestLx !== lx || lowestLy !== ly) {
-        accumulation[lowestLy][lowestLx] += accumulation[ly][lx];
-      }
-    }
-
-    // Mark cells with high accumulation as rivers
-    const riverThreshold = CHUNK_SIZE * 2;
-    for (let ly = 0; ly < CHUNK_SIZE; ly++) {
-      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-        if (accumulation[ly][lx] > riverThreshold && elev[ly][lx] > ELEVATION.BEACH) {
-          chunk[ly][lx] = true;
-        }
-      }
-    }
-
     return chunk;
   }
 
