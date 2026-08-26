@@ -387,6 +387,7 @@ export interface ServerEvents {
   "clan:state": (state: ClanState | null) => void;
   "clan:closed": (data: { reason: string }) => void;
   "action:result": (data: { ok: boolean; message: string }) => void;
+  "world:time": (data: { time: number; isDay: boolean }) => void;
 }
 
 // ---- World Generation Types ----

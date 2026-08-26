@@ -46,8 +46,9 @@
 
 ## Current Rendering
 
-- PixiJS 7 procedural zero-asset (CHG-016): `WT_COLORS` vibrantes, 14 overlays por tile (forest canopy+trunk, mountain ridge, beach wave, desert dune, hills contour, swamp lily, river flow, iron veins, gold sparkle, ocean shimmer) en 1 Graphics/chunk 60fps.
-- Jugadores: `raceMods` skin/scale (enano 0.88, gnomo 0.78, elfo 1.04) + `armor/weapon/shield/head/boots` visibles, `sig` incluye `race|equip`; NPCs `merchant🛒/banker🏦/quest❗` + coin, mobs `goblin 0.92/wolf 1.02/skeleton/ogro 1.32` + arma (dagger/claws/espada/club).
+- PixiJS 7 procedural zero-asset (CHG-016): `WT_COLORS` vibrantes, 14 overlays por tile en 1 Graphics/chunk 60fps.
+- Jugadores: `raceMods` skin/scale + `armor/weapon/shield/head` visibles; NPCs `merchant🛒/banker🏦/quest❗`+coin; mobs `goblin 0.92/wolf 1.02/ogro 1.32`+arma.
+- Iluminación (CHG-017): ciclo 10 min `DAY_TICKS 12000` server `world:time` cada 1s, `dayOverlay` 0→0.58 + tint `0x0d1a2e` noche / `0x112233` dawn, `lightGfx` radial 4 círculos + core `ADD` flicker `0.92`, luces jugador 140 + antorcha 90 + campfire 100, indoor 0.18 día/0.42 noche, per-frame `updateLighting`.
 
 ## Known Gaps
 
@@ -62,4 +63,4 @@
 
 ## Last Updated
 
-2026-08-26 (CHG-016 — visual assets procedurales)
+2026-08-26 (CHG-017 — iluminacion dia/noche)

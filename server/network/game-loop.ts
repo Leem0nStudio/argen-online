@@ -7,7 +7,7 @@ import type { ClientEvents, ServerEvents } from "../../shared/types.js";
 import {
   TICK_RATE_MS, AI_TICK_INTERVAL, MONSTER_BROADCAST_INTERVAL,
   REGEN_INTERVAL, RESPAWN_CHECK_INTERVAL, POISON_TICK_INTERVAL,
-  ALL_WILDERNESS_MAPS,
+  ALL_WILDERNESS_MAPS, DAY_TICKS_PER_CYCLE,
 } from "../../shared/constants.js";
 import { Players, Ground } from "../game/state.js";
 import { tickMonsterAI, respawnMonsters, getMonstersAsData } from "../game/monster-ai.js";
@@ -95,6 +95,13 @@ export function startGameLoop(io: GameServer) {
           }
         }
       }
+    }
+
+    // ---- Day/Night broadcast every 1s ----
+    if (tick % REGEN_INTERVAL === 0) {
+      const time = (tick % DAY_TICKS_PER_CYCLE) / DAY_TICKS_PER_CYCLE;
+      const isDay = time >= 0.15 && time < 0.65;
+      io.emit("world:time", { time, isDay });
     }
 
     // ---- Broadcast monster positions every 500ms (per-map rooms) ----

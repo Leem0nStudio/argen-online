@@ -87,6 +87,13 @@ export class GameEngine {
   particles: ParticleSystem;
   shake: ScreenShake;
   ambientTiles: AmbientTiles;
+  // Lighting
+  lightContainer: PIXI.Container;
+  dayOverlay: PIXI.Graphics;
+  lightGfx: PIXI.Graphics;
+  worldTime = 0.25; // noon
+  isDay = true;
+  private lightFlickerPhase = 0;
 
   camera = { x: 0, y: 0 };
   currentMap: GameMap | null = null;
@@ -169,6 +176,16 @@ export class GameEngine {
     this.shake = new ScreenShake(this.worldContainer);
     this.ambientTiles = new AmbientTiles();
 
+    // Lighting overlay (screen-space)
+    this.lightContainer = new PIXI.Container();
+    this.dayOverlay = new PIXI.Graphics();
+    this.lightGfx = new PIXI.Graphics();
+    this.lightContainer.addChild(this.dayOverlay);
+    this.lightContainer.addChild(this.lightGfx);
+    this.app.stage.addChild(this.lightContainer);
+    // Initially noon
+    this.setWorldTime(0.25, true);
+
     window.addEventListener("resize", this.handleResize);
     window.addEventListener("keydown", this.handleKeyDown);
     window.addEventListener("keyup", this.handleKeyUp);
@@ -214,7 +231,100 @@ export class GameEngine {
     this.screenH = window.innerHeight;
     this.app.renderer.resize(this.screenW, this.screenH);
     if (this.fpsText) this.fpsText.position.set(8, this.screenH - 24);
+    // Resize overlay
+    this.updateLighting();
   };
+
+  setWorldTime(time: number, isDay: boolean) {
+    this.worldTime = time;
+    this.isDay = isDay;
+    this.updateLighting();
+  }
+
+  private updateLighting() {
+    if (!this.dayOverlay || !this.lightGfx) return;
+    const time = this.worldTime;
+    // Ambient: interpolate dawn/dusk
+    let alpha = 0;
+    let tint = 0x000000;
+    if (this.isWorldMode) {
+      if (time >= 0.15 && time < 0.25) { // dawn 0.55->0
+        const p = (time - 0.15) / 0.10;
+        alpha = 0.55 * (1 - p);
+        tint = 0x112233;
+      } else if (time >= 0.25 && time < 0.65) {
+        alpha = 0; tint = 0x000000;
+      } else if (time >= 0.65 && time < 0.75) {
+        const p = (time - 0.65) / 0.10;
+        alpha = 0.55 * p;
+        tint = 0x1a0f2a;
+      } else {
+        alpha = 0.58; tint = 0x0d1a2e;
+      }
+    } else {
+      // Indoor: dimmer at night
+      alpha = this.isDay ? 0.18 : 0.42;
+      tint = this.isDay ? 0x000000 : 0x1a1a2e;
+    }
+
+    this.dayOverlay.clear();
+    if (alpha > 0.01) {
+      this.dayOverlay.beginFill(tint, alpha);
+      this.dayOverlay.drawRect(0, 0, this.screenW, this.screenH);
+      this.dayOverlay.endFill();
+    }
+
+    // Point lights — radial falloff (screen-space, punch holes in darkness)
+    this.lightGfx.clear();
+    if (alpha > 0.05) {
+      this.lightFlickerPhase += 0.07;
+      const flicker = 0.92 + Math.sin(this.lightFlickerPhase) * 0.08 + Math.sin(this.lightFlickerPhase * 1.7) * 0.04;
+      const lights: { wx: number; wy: number; radius: number; color: number; alpha: number }[] = [];
+      // Player light
+      if (this.localPlayer) lights.push({ wx: this.localPlayer.x, wy: this.localPlayer.y, radius: 140 * flicker, color: 0xffd080, alpha: 0.95 });
+      for (const [, c] of this.otherPlayers) {
+        const wx = (c.x - this.camera.x - this.screenW / 2) / 32 + (this.localPlayer?.x ?? 0); // approx, but use container pos
+        // Use sprite world pos directly: c.x is world*32+16, camera applied to worldContainer
+        // For point lights we need screen pos: worldPos *32 + camera
+        // So compute screen from world
+        const worldX = (c.x - 16) / 32;
+        const worldY = (c.y - 16) / 32;
+        lights.push({ wx: worldX, wy: worldY, radius: 110, color: 0xffd080, alpha: 0.6 });
+      }
+      // Torches in settlement
+      if (this.currentMap) {
+        for (let y = 0; y < this.currentMap.height; y++) for (let x = 0; x < this.currentMap.width; x++) {
+          const deco = this.currentMap.decorations[y]?.[x];
+          // D.torch == 1 (check shared/maps)
+          if (deco === 1) lights.push({ wx: x, wy: y, radius: 90 * flicker, color: 0xffaa44, alpha: 0.85 });
+          if (deco === 7) lights.push({ wx: x, wy: y, radius: 100 * flicker, color: 0xff6600, alpha: 0.7 }); // campfire? approx
+        }
+      }
+      // World torches: use decoContainer torches? fallback: no world torches
+
+      for (const l of lights) {
+        const sx = l.wx * 32 + 16 + this.camera.x;
+        const sy = l.wy * 32 + 16 + this.camera.y;
+        // Cull off-screen
+        if (sx < -l.radius || sx > this.screenW + l.radius || sy < -l.radius || sy > this.screenH + l.radius) continue;
+        // Radial gradient via concentric circles
+        for (let i = 4; i >= 1; i--) {
+          const r = (l.radius * i) / 4;
+          const a = l.alpha * (0.18 / i) * flicker;
+          this.lightGfx.beginFill(l.color, a);
+          this.lightGfx.drawCircle(sx, sy, r);
+          this.lightGfx.endFill();
+        }
+        // Core
+        this.lightGfx.beginFill(l.color, l.alpha * 0.18);
+        this.lightGfx.drawCircle(sx, sy, 12);
+        this.lightGfx.endFill();
+      }
+      this.lightGfx.blendMode = PIXI.BLEND_MODES.ADD;
+    } else {
+      this.lightGfx.clear();
+    }
+  }
 
   handleKeyDown = (e: KeyboardEvent) => this.keys.add(e.key.toLowerCase());
   handleKeyUp = (e: KeyboardEvent) => this.keys.delete(e.key.toLowerCase());
@@ -974,6 +1084,7 @@ export class GameEngine {
     this.ambientTiles.update(this.animTime);
     this.particles.update(0.016);
     this.shake.update(0.016);
+    this.updateLighting();
 
     // Stream new world chunks when the player crosses a chunk boundary
     if (this.isWorldMode) {

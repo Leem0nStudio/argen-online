@@ -114,5 +114,9 @@ export const GATHER_COOLDOWN_MS = 3000;
 export const GROUND_ITEM_TTL_MS = 5 * 60 * 1000; // 5 min
 export const GROUND_MAX_ITEMS = 200;
 
+// ---- Day/Night ----
+export const DAY_CYCLE_DURATION_MS = 10 * 60 * 1000; // 10 min full cycle
+export const DAY_TICKS_PER_CYCLE = DAY_CYCLE_DURATION_MS / 50; // ticks (50ms)
+
 // ---- Client-only constants (non-numeric, safe for server import) ----
 export const ALL_WILDERNESS_MAPS = ["campo_norte", "campo_sur", "campo_oeste", "campo_este", "mazmorra_entrance", "mazmorra_profunda"] as const;

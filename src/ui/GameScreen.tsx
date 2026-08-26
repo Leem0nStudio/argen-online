@@ -201,6 +201,9 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
     const onMapData = (map: import("@shared/types").GameMap) => {
       engineRef.current?.registerMap(map);
     };
+    const onWorldTime = (data: { time: number; isDay: boolean }) => {
+      engineRef.current?.setWorldTime(data.time, data.isDay);
+    };
     const onBankState = (state: { gold: number; items: { itemId: string; name: string; quantity: number }[] }) => setBankState(state);
     const onClanState = (state: ClanState | null) => setClanState(state);
     const onClanRequest = (data: { fromId: string; fromName: string; clanName: string }) => {
@@ -259,6 +262,7 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
     socket.on("world:chunk", onWorldChunk);
     socket.on("player:levelup", onLevelUp);
     socket.on("map:data", onMapData);
+    socket.on("world:time", onWorldTime);
     socket.on("bank:state", onBankState);
     socket.on("trade:request", onTradeRequest);
     socket.on("trade:state", onTradeState);
@@ -285,6 +289,7 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
       socket.off("world:chunk", onWorldChunk);
       socket.off("player:levelup", onLevelUp);
       socket.off("map:data", onMapData);
+      socket.off("world:time", onWorldTime);
       socket.off("bank:state", onBankState);
       socket.off("trade:request", onTradeRequest);
       socket.off("trade:state", onTradeState);
