@@ -1,0 +1,20 @@
+/* AO Design Tokens — Mobile First */
+:root {
+  --ao-radius-sm: 6px;
+  --ao-radius-md: 10px;
+  --ao-radius-lg: 14px;
+  --ao-radius-pill: 999px;
+  --ao-space-xs: 4px;
+  --ao-space-sm: 8px;
+  --ao-space-md: 12px;
+  --ao-space-lg: 16px;
+  --ao-space-xl: 24px;
+  --ao-thumb: 48px; /* min tap */
+  --ao-thumb-lg: 56px;
+  --ao-font-xs: 0.65rem;
+  --ao-font-sm: 0.78rem;
+  --ao-font-md: 0.9rem;
+  --ao-ease: 0.18s ease;
+  --ao-shadow-panel: 0 8px 24px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.35);
+  --ao-shadow-gold: 0 0 12px rgba(212,168,67,0.35);
+}

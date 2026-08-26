@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback } from "react";
 import { Direction } from "@shared/types";
+import { haptic } from "./hooks/useHaptic";
 
 interface Props {
   onMove: (dx: number, dy: number, direction: Direction) => void;
@@ -7,9 +8,9 @@ interface Props {
   onAttack?: () => void;
 }
 
-const DEAD_ZONE = 0.25;
-const STICK_RADIUS = 46;
-const REPEAT_MS = 150;
+const DEAD_ZONE = 0.18;
+const STICK_RADIUS = 58;
+const REPEAT_MS = 140;
 
 export default function VirtualJoystick({ onMove, onRelease, onAttack }: Props) {
   const repeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -27,6 +28,7 @@ export default function VirtualJoystick({ onMove, onRelease, onAttack }: Props) 
 
   const startDir = useCallback((dx: number, dy: number, dir: Direction) => {
     clearRepeat();
+    haptic("light");
     onMove(dx, dy, dir);
     repeatRef.current = setInterval(() => onMove(dx, dy, dir), REPEAT_MS);
   }, [onMove, clearRepeat]);
@@ -45,6 +47,7 @@ export default function VirtualJoystick({ onMove, onRelease, onAttack }: Props) 
     originRef.current = { x: touch.clientX, y: touch.clientY };
     setBasePos({ x: touch.clientX, y: touch.clientY });
     setKnob({ x: 0, y: 0 });
+    haptic("light");
   }, []);
 
   const handleZoneTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
@@ -64,12 +67,12 @@ export default function VirtualJoystick({ onMove, onRelease, onAttack }: Props) 
         else dir = dy > 0 ? Direction.Down : Direction.Up;
         const nx = dx / STICK_RADIUS;
         const ny = dy / STICK_RADIUS;
-        const mx = Math.abs(nx) > 0.4 ? (nx > 0 ? 1 : -1) : 0;
-        const my = Math.abs(ny) > 0.4 ? (ny > 0 ? 1 : -1) : 0;
+        const mx = Math.abs(nx) > 0.35 ? (nx > 0 ? 1 : -1) : 0;
+        const my = Math.abs(ny) > 0.35 ? (ny > 0 ? 1 : -1) : 0;
         if (mx !== 0 || my !== 0) {
-          // throttle to engine pace without stacking intervals
           clearRepeat();
           onMove(mx, my, dir);
+          if (dist > STICK_RADIUS * 0.9) haptic("light");
           repeatRef.current = setInterval(() => onMove(mx, my, dir), REPEAT_MS);
         }
       } else {
@@ -103,11 +106,11 @@ export default function VirtualJoystick({ onMove, onRelease, onAttack }: Props) 
       {basePos && (
         <div
           className="joystick-base"
-          style={{ left: basePos.x - 60, top: basePos.y - 60 }}
+          style={{ left: basePos.x - 68, top: basePos.y - 68, width: 136, height: 136 }}
         >
           <div
             className="joystick-knob"
-            style={{ transform: `translate(${knob.x}px, ${knob.y}px)` }}
+            style={{ transform: `translate(${knob.x}px, ${knob.y}px)`, width: 58, height: 58, marginLeft: -29, marginTop: -29 }}
           />
         </div>
       )}

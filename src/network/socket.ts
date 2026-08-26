@@ -8,10 +8,12 @@ let socket: GameSocket | null = null;
 export function getSocket(): GameSocket {
   if (!socket) {
     socket = io({
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
     });
   }
   return socket;

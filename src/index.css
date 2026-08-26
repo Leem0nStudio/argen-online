@@ -1,3 +1,4 @@
+@import "./ui/components/tokens.css";
 /* Argentum Online - Game Theme */
 :root {
   --bg-dark: #0a0a0f;
@@ -591,3 +592,58 @@ html, body, #root {
 .quest-list { display:flex; flex-direction:column; gap:6px; }
 .quest-option { display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; background:rgba(255,255,255,0.05); padding:6px 8px; border-radius:6px; }
 .quest-option button { font-size:0.7rem; padding:3px 8px; border-radius:6px; border:1px solid #d4a843; background:rgba(212,168,67,0.2); color:#e0d5c1; cursor:pointer; }
+
+/* ===================== AO DESIGN SYSTEM — Mobile First ===================== */
+.ao-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border-radius: var(--ao-radius-md); border: 1px solid var(--border-dark);
+  background: var(--bg-panel); color: var(--text-light);
+  font-weight: 600; letter-spacing: 0.3px; cursor: pointer;
+  transition: transform var(--ao-ease), border-color var(--ao-ease), opacity var(--ao-ease);
+  -webkit-tap-highlight-color: transparent; user-select: none;
+  min-height: var(--ao-thumb); padding: 0 14px; font-size: var(--ao-font-md);
+}
+.ao-btn:active { transform: scale(0.97); }
+.ao-btn:disabled { opacity: 0.5; pointer-events: none; }
+.ao-btn--primary { background: linear-gradient(135deg, var(--text-gold), #b8922e); color: #1a1520; border-color: transparent; }
+.ao-btn--gold { background: rgba(212,168,67,0.18); color: var(--text-gold); border-color: var(--border-gold); }
+.ao-btn--ghost { background: transparent; color: var(--text-dim); border-color: var(--border-dark); }
+.ao-btn--danger { background: rgba(204,51,51,0.18); color: #ff8888; border-color: rgba(204,51,51,0.5); }
+.ao-btn--sm { min-height: 36px; padding: 0 10px; font-size: var(--ao-font-sm); }
+.ao-btn--md { min-height: var(--ao-thumb); }
+.ao-btn--lg { min-height: var(--ao-thumb-lg); padding: 0 20px; font-size: 1rem; }
+
+.ao-panel { background: rgba(26,21,32,0.96); border: 1px solid var(--border-gold); border-radius: var(--ao-radius-lg); box-shadow: var(--ao-shadow-panel); }
+.ao-panel--padded { padding: var(--ao-space-md); }
+.ao-panel--hud { background: rgba(10,10,15,0.88); border-color: var(--border-dark); }
+.ao-panel-title { font-size: var(--ao-font-md); color: var(--text-gold); font-weight: 700; text-align: center; margin-bottom: var(--ao-space-sm); letter-spacing: 0.8px; }
+
+.ao-sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: flex-end; justify-content: center; z-index: 400; padding: 0 0 max(12px, var(--safe-bottom)) 0; }
+.ao-sheet { width: min(560px, 96vw); max-height: 82vh; overflow-y: auto; background: var(--bg-panel); border: 1px solid var(--border-gold); border-radius: 16px 16px 12px 12px; padding: 12px 12px max(12px, var(--safe-bottom)); box-shadow: var(--ao-shadow-panel); }
+.ao-sheet-handle { width: 36px; height: 4px; border-radius: 999px; background: var(--border-dark); margin: 0 auto 8px; }
+
+.ao-thumb-zone { position: absolute; bottom: 0; top: 0; width: 42%; z-index: 110; touch-action: none; }
+.ao-thumb-zone--left { left: 0; }
+.ao-thumb-zone--right { right: 0; display: flex; align-items: flex-end; justify-content: flex-end; padding: 0 10px calc(10px + var(--safe-bottom)); gap: 8px; }
+
+.ao-skill-wheel { position: absolute; bottom: calc(72px + var(--safe-bottom)); right: calc(10px + var(--safe-right)); display: flex; gap: 8px; z-index: 120; }
+.ao-action-dock { position: absolute; bottom: calc(10px + var(--safe-bottom)); left: 50%; transform: translateX(-50%); display: flex; gap: 8px; padding: 6px 8px; background: rgba(10,10,15,0.92); border: 1px solid var(--border-dark); border-radius: 14px; z-index: 120; }
+
+/* Mobile-first HUD grid */
+@media (max-width: 767px) {
+  .hud { width: auto; right: calc(8px + var(--safe-right)); }
+  .hud-bars { width: 100%; }
+  .minimap-wrapper { top: calc(68px + var(--safe-top)) !important; }
+  .ao-thumb-zone { width: 48%; }
+  .skill-bar { bottom: calc(86px + var(--safe-bottom)) !important; gap: 10px !important; }
+  .skill-slot { width: 52px !important; height: 52px !important; }
+  .action-bar { bottom: calc(14px + var(--safe-bottom)) !important; gap: 10px !important; }
+  .action-slot { width: 56px !important; height: 56px !important; }
+  .chat-panel { width: min(92vw, 360px) !important; }
+}
+
+/* Comfort: larger tap, thumb-safe */
+@media (hover: none) and (pointer: coarse) {
+  .ao-btn, .action-slot, .skill-slot, .shop-item, .inventory-slot, .dpad-btn { min-height: var(--ao-thumb); }
+  .chat-input { min-height: 44px !important; font-size: 16px !important; } /* prevent iOS zoom */
+}

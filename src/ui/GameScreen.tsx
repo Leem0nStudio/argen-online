@@ -10,6 +10,9 @@ import { GameEngine } from "../game/engine";
 import VirtualJoystick from "./VirtualJoystick";
 import Minimap from "./Minimap";
 import StatPanel from "./StatPanel";
+import { AOPanel, AOBottomSheet } from "./components/AOPanel";
+import AOButton from "./components/AOButton";
+import { haptic } from "./hooks/useHaptic";
 import * as Audio from "../game/audio";
 
 interface Props {
@@ -391,11 +394,12 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
     setChatInput("");
   }, [chatInput]);
   const handleRespawn = useCallback(() => { getSocket().emit("player:respawn"); setDeathScreen(false); Audio.playZoneChange(); }, []);
-  const handleEquip = useCallback((slot: number) => { Audio.playEquip(); getSocket().emit("item:equip", slot); }, []);
-  const handleUse = useCallback((slot: number) => { Audio.playUsePotion(); getSocket().emit("item:use", slot); }, []);
-  const handleBuyItem = useCallback((itemId: string) => { Audio.playBuy(); getSocket().emit("npc:buy", itemId, 1); }, []);
+  const handleEquip = useCallback((slot: number) => { haptic("light"); Audio.playEquip(); getSocket().emit("item:equip", slot); }, []);
+  const handleUse = useCallback((slot: number) => { haptic("light"); Audio.playUsePotion(); getSocket().emit("item:use", slot); }, []);
+  const handleBuyItem = useCallback((itemId: string) => { haptic("medium"); Audio.playBuy(); getSocket().emit("npc:buy", itemId, 1); }, []);
 
   const useSkill = useCallback((skillId: string) => {
+    haptic("medium");
     const target = selectedTarget ?? undefined;
     getSocket().emit("skill:use", { skillId, targetId: target });
   }, [selectedTarget]);
@@ -578,36 +582,66 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
         <VirtualJoystick onMove={handleJoystickMove} onRelease={handleJoystickRelease} onAttack={handleMobileAttack} />
       )}
 
-      {/* Inventory Panel */}
+      {/* Inventory Panel — bottom-sheet on mobile, centered panel on desktop */}
       {showInventory && (
-        <div className="inventory-panel">
-          <div className="inventory-title">🎒 Inventario</div>
-          <div className="inventory-grid">
-            {Array.from({ length: 16 }, (_, i) => {
-              const item = player.inventory?.find(inv => inv.slot === i);
-              return (
-                <div key={i} className={`inventory-slot ${item ? "has-item" : ""}`} onClick={() => item && handleEquip(item.slot)}>
-                  {item && (<><span>{ITEM_ICONS[item.itemId] ?? "?"}</span>{item.quantity > 1 && <span className="item-count">{item.quantity}</span>}</>)}
-                </div>
-              );
-            })}
-          </div>
-          <div className="equipment-section">
-            <div className="equipment-title">Equipo</div>
-            <div className="equipment-grid">
-              {(["weapon", "armor", "shield", "head", "boots", "ring"] as string[]).map((slot) => {
-                const equipped = (player.equipment as any)?.[slot];
+        isMobile ? (
+          <AOBottomSheet title="🎒 Inventario" onClose={() => setShowInventory(false)}>
+            <div className="inventory-grid">
+              {Array.from({ length: 20 }, (_, i) => {
+                const item = player.inventory?.find(inv => inv.slot === i);
                 return (
-                  <div key={slot} className={`equip-slot ${equipped ? "filled" : ""}`}>
-                    <div className="equip-slot-label">{SLOT_LABELS[slot] ?? slot}</div>
-                    <div>{equipped ? (ITEM_ICONS[equipped] ?? "?") : "—"}</div>
+                  <div key={i} className={`inventory-slot ${item ? "has-item" : ""}`} onClick={() => item && handleEquip(item.slot)}>
+                    {item && (<><span>{ITEM_ICONS[item.itemId] ?? "?"}</span>{item.quantity > 1 && <span className="item-count">{item.quantity}</span>}</>)}
                   </div>
                 );
               })}
             </div>
+            <div className="equipment-section">
+              <div className="equipment-title">Equipo</div>
+              <div className="equipment-grid">
+                {(["weapon", "armor", "shield", "head", "boots", "ring"] as string[]).map((slot) => {
+                  const equipped = (player.equipment as any)?.[slot];
+                  return (
+                    <div key={slot} className={`equip-slot ${equipped ? "filled" : ""}`}>
+                      <div className="equip-slot-label">{SLOT_LABELS[slot] ?? slot}</div>
+                      <div>{equipped ? (ITEM_ICONS[equipped] ?? "?") : "—"}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <AOButton variant="ghost" onClick={() => setShowInventory(false)} style={{ marginTop: 12, width: "100%" }}>Cerrar</AOButton>
+          </AOBottomSheet>
+        ) : (
+          <div className="inventory-panel">
+            <div className="inventory-title">🎒 Inventario</div>
+            <div className="inventory-grid">
+              {Array.from({ length: 20 }, (_, i) => {
+                const item = player.inventory?.find(inv => inv.slot === i);
+                return (
+                  <div key={i} className={`inventory-slot ${item ? "has-item" : ""}`} onClick={() => item && handleEquip(item.slot)}>
+                    {item && (<><span>{ITEM_ICONS[item.itemId] ?? "?"}</span>{item.quantity > 1 && <span className="item-count">{item.quantity}</span>}</>)}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="equipment-section">
+              <div className="equipment-title">Equipo</div>
+              <div className="equipment-grid">
+                {(["weapon", "armor", "shield", "head", "boots", "ring"] as string[]).map((slot) => {
+                  const equipped = (player.equipment as any)?.[slot];
+                  return (
+                    <div key={slot} className={`equip-slot ${equipped ? "filled" : ""}`}>
+                      <div className="equip-slot-label">{SLOT_LABELS[slot] ?? slot}</div>
+                      <div>{equipped ? (ITEM_ICONS[equipped] ?? "?") : "—"}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <AOButton variant="ghost" onClick={() => setShowInventory(false)} style={{ marginTop: 12, width: "100%" }}>Cerrar</AOButton>
           </div>
-          <button className="npc-close" onClick={() => setShowInventory(false)}>Cerrar</button>
-        </div>
+        )
       )}
 
       {/* NPC Panel */}
@@ -667,7 +701,7 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
               ))}
             </div>
           )}
-          <button className="npc-close" onClick={() => setNpcPanel(null)}>Cerrar</button>
+          <AOButton variant="ghost" onClick={() => setNpcPanel(null)} style={{ marginTop: 12, width: "100%" }}>Cerrar</AOButton>
         </div>
       )}
 
@@ -702,7 +736,7 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
               );
             })}
           </div>
-          <button className="npc-close" onClick={() => setShowCrafting(false)}>Cerrar</button>
+          <AOButton variant="ghost" onClick={() => setShowCrafting(false)} style={{ marginTop: 12, width: "100%" }}>Cerrar</AOButton>
         </div>
       )}
 

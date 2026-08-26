@@ -48,7 +48,11 @@
 
 - PixiJS 7 zero-asset (CHG-016): `WT_COLORS` vibrantes, 14 overlays por tile en 1 Graphics/chunk 60fps.
 - Jugadores: `raceMods` + `armor/weapon/shield/head` visibles; NPCs `merchant🛒/banker🏦/quest❗`+coin; mobs `goblin 0.92/ogro 1.32`+arma.
-- Iluminación (CHG-017/018): ciclo 10 min `world:time` 1s, `dayOverlay` 0→0.58, `lightGfx` radial `ADD` flicker; luz jugador `lantern 185 / torch 145 (buff 5m) / base 72`, antorcha 90, campfire 100, indoor 0.18/0.42.
+- Iluminación (CHG-017/018): ciclo 10 min `world:time` 1s, `dayOverlay` 0→0.58, `lightGfx` radial `ADD` flicker; luz jugador `lantern 185 / torch 145 (buff 5m) / base 72`.
+
+## Current UI/UX
+
+- Mobile-first (CHG-019): tokens `ao-thumb 48-56`, `AOButton/AOPanel/AOBottomSheet` reutilizables, `VirtualJoystick` 58 radius + `haptic light` + `D-pad` 56px, `skill 52`/`action 56` thumb zones, `inventory BottomSheet 20 slots` + `chat 92vw` con `safe-area`, `GameScreen` `handleEquip/Use/Buy/useSkill` con `haptic`.
 
 ## Known Gaps
 
@@ -63,4 +67,4 @@
 
 ## Last Updated
 
-2026-08-26 (CHG-018 — linterna/antorcha)
+2026-08-26 (CHG-019 — ui mobile-first)
