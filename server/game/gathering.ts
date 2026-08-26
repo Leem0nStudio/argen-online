@@ -102,6 +102,19 @@ export function gather(playerId: string): { ok: boolean; message: string; itemId
 
   const found = findResourceTile(player.mapId, player.x, player.y);
   if (found === null) {
+    // Check if nearby resource is depleted (for better UX)
+    const candidates: [number, number][] = [[player.x, player.y], [player.x + 1, player.y], [player.x - 1, player.y], [player.x, player.y + 1], [player.x, player.y - 1]];
+    if (player.mapId === "world") {
+      try {
+        const wm = getWorldMap();
+        for (const [cx, cy] of candidates) {
+          if (isDepleted(player.mapId, cx, cy)) {
+            const t = wm.getTile(cx, cy);
+            if (YIELDS[t]) return { ok: false, message: "Este filón está agotado, vuelve en unos minutos.", quantity: 0 };
+          }
+        }
+      } catch {}
+    }
     return { ok: false, message: "No hay nada que recolectar aquí.", quantity: 0 };
   }
   // Herramienta requerida

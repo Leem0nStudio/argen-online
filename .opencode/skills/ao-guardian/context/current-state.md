@@ -23,11 +23,10 @@
 
 ## Current World
 
-- Continente procedural 32×32 chunks (CHUNK_SIZE=64 tiles), seed 42, ~23s de generación en arranque.
-- 12 asentamientos (capitales/ciudades/pueblos/aldeas) con mapa interior propio, murallas y portón norte.
-- 3 reinos con capitales, 803 segmentos de camino, 30 POIs (solo puntos, sin contenido aún).
-- Streaming de chunks al cliente; consolidación de terreno en 1 Graphics por chunk (optimización 60fps).
-- Spawn de personajes: capital más cercana (`getSpawnPoint`).
+- Continente procedural 32×32 chunks (CHUNK_SIZE=64 tiles), seed 42 + vetas `ironDeposit/goldDeposit` en colinas/montañas (~3% rust, 0.8% oro, determinístico) (CHG-012).
+- 12 asentamientos con interiores, 3 reinos, 803 roads, 30 POIs.
+- Streaming chunks + `WALKABLE` incluye deposits; `getTile` refleja vetas superficie.
+- Spawn: capital más cercana.
 
 ## Current Multiplayer Model
 
@@ -64,4 +63,4 @@
 
 ## Last Updated
 
-2026-08-26 (CHG-011 — economia escasez)
+2026-08-26 (CHG-012 — recursos superficie)

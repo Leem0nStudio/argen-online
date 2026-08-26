@@ -913,6 +913,21 @@ export class WorldGenerator {
       }
     }
 
+    // ---- Surface deposits (scarcity): hierro/oro en colinas/montañas, determinístico por seed
+    for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+        const base = tile[ly][lx];
+        if (base === WT.rockyHills || base === WT.mountain || base === WT.hills || base === WT.highMountain) {
+          const wx = rx * CHUNK_SIZE + lx;
+          const wy = ry * CHUNK_SIZE + ly;
+          const rn = (this.noise.simple(wx, wy, 999) + 1) / 2; // 0..1
+          // ~3% hierro, ~0.8% oro, wilderness bias via ridged noise
+          if (rn > 0.985) tile[ly][lx] = WT.goldDeposit;
+          else if (rn > 0.93) tile[ly][lx] = WT.ironDeposit;
+        }
+      }
+    }
+
     return { rx, ry, elevation: elev, temperature: temp, rainfall: rain, biome, tile };
   }
 }

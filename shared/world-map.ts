@@ -16,7 +16,7 @@ const WALKABLE_TILES: Set<number> = new Set([
   WT.savanna, WT.hills, WT.rockyHills, WT.desert, WT.jungle,
   WT.taiga, WT.coral, WT.river, WT.lake,
   WT.dirtRoad, WT.stoneRoad, WT.townFloor, WT.path, WT.bridge,
-  WT.cave, WT.ruins,
+  WT.cave, WT.ruins, WT.ironDeposit, WT.goldDeposit, WT.crystalDeposit,
 ]);
 
 const NON_WALKABLE_TILES: Set<number> = new Set([

@@ -20,7 +20,7 @@
 | Trade | IMPLEMENTED | /comerciar + sesión con doble confirmación (RANGE 5 centralizado), swap atómico | VERIFIED | CHG-002+009 |
 | Professions | IMPLEMENTED | /recolectar finito 5-12m respawn, requiere pico/hacha | VERIFIED | CHG-011 escasez |
 | Crafting | IMPLEMENTED | 5 recetas (incl. herramientas) vía /craftear en ciudad + costo oro | VERIFIED | CHG-011 estación |
-| Resources | IMPLEMENTED | iron_ore/wood/gold_nugget con agotamiento + stock NPC 10/resupply | VERIFIED | CHG-011 escasez |
+| Resources | IMPLEMENTED | iron_ore/wood/gold_nugget — vetas superficie en colinas/montañas + agotamiento 5-12m + stock | VERIFIED | CHG-011+012 escasez |
 | Factions | IMPLEMENTED | reinos con territorio (getKingdomAt), reputación por caza | VERIFIED | CHG-006 |
 | Clans | IMPLEMENTED | /clan crear/invitar/salir, hasta 8 miembros, chat /c, panel visible, persistido en SQLite | VERIFIED | CHG-006; loadClansFromDB al iniciar |
 | Party | IMPLEMENTED | /party, XP compartida con bonus 1.25x, chat /p, roster visible | VERIFIED | CHG-003; sin loot distribution ni HP de miembros | |
