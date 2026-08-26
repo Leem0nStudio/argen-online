@@ -46,9 +46,9 @@
 
 ## Current Rendering
 
-- PixiJS 7 procedural zero-asset (CHG-016): `WT_COLORS` vibrantes, 14 overlays por tile en 1 Graphics/chunk 60fps.
-- Jugadores: `raceMods` skin/scale + `armor/weapon/shield/head` visibles; NPCs `merchant🛒/banker🏦/quest❗`+coin; mobs `goblin 0.92/wolf 1.02/ogro 1.32`+arma.
-- Iluminación (CHG-017): ciclo 10 min `DAY_TICKS 12000` server `world:time` cada 1s, `dayOverlay` 0→0.58 + tint `0x0d1a2e` noche / `0x112233` dawn, `lightGfx` radial 4 círculos + core `ADD` flicker `0.92`, luces jugador 140 + antorcha 90 + campfire 100, indoor 0.18 día/0.42 noche, per-frame `updateLighting`.
+- PixiJS 7 zero-asset (CHG-016): `WT_COLORS` vibrantes, 14 overlays por tile en 1 Graphics/chunk 60fps.
+- Jugadores: `raceMods` + `armor/weapon/shield/head` visibles; NPCs `merchant🛒/banker🏦/quest❗`+coin; mobs `goblin 0.92/ogro 1.32`+arma.
+- Iluminación (CHG-017/018): ciclo 10 min `world:time` 1s, `dayOverlay` 0→0.58, `lightGfx` radial `ADD` flicker; luz jugador `lantern 185 / torch 145 (buff 5m) / base 72`, antorcha 90, campfire 100, indoor 0.18/0.42.
 
 ## Known Gaps
 
@@ -63,4 +63,4 @@
 
 ## Last Updated
 
-2026-08-26 (CHG-017 — iluminacion dia/noche)
+2026-08-26 (CHG-018 — linterna/antorcha)

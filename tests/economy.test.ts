@@ -14,6 +14,16 @@ describe("economia escasez", () => {
     expect(ITEMS["wood_axe"]).toBeDefined();
     expect(ITEMS["iron_pickaxe"].type).toBe("weapon");
   });
+  it("luces existen", () => {
+    expect(ITEMS["torch"]).toBeDefined();
+    expect(ITEMS["lantern"]).toBeDefined();
+    expect(ITEMS["torch"].stackable).toBe(true);
+    const torchR = RECIPES.find(r => r.id === "torch");
+    expect(torchR?.goldCost).toBe(5);
+    expect(torchR?.ingredients.find(i => i.itemId === "wood")?.quantity).toBe(2);
+    const lanternR = RECIPES.find(r => r.id === "lantern");
+    expect(lanternR?.goldCost).toBe(30);
+  });
   it("bank fee 2%", () => {
     const fee = (a: number) => Math.ceil(a * 0.02);
     expect(fee(100)).toBe(2);

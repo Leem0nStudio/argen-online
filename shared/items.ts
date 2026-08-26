@@ -91,4 +91,14 @@ export const ITEMS: Record<string, ItemDef> = {
     rarity: "common", buyPrice: 35, sellPrice: 8,
     stats: { damage: 2 }, stackable: false, description: "Necesaria para talar madera."
   },
+  torch: {
+    id: "torch", name: "Antorcha", type: "consumable",
+    rarity: "common", buyPrice: 8, sellPrice: 2,
+    stackable: true, description: "Ilumina 5 min. Se consume al usar."
+  },
+  lantern: {
+    id: "lantern", name: "Farol", type: "shield", slot: "shield",
+    rarity: "uncommon", buyPrice: 60, sellPrice: 15,
+    stats: { defense: 1 }, stackable: false, description: "Luz permanente. Equipar y usar para encender/apagar."
+  },
 };

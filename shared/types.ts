@@ -142,6 +142,7 @@ export interface PlayerState {
   equipment: Equipment;
   buffs?: ActiveBuff[];
   cooldowns?: CooldownState;
+  lanternOn?: boolean;
   /** Timestamp until which the player is marked criminal (PvP). Runtime only. */
   criminalUntil?: number;
   reputation?: Record<string, number>;

@@ -19,7 +19,7 @@
 | NPCs | IMPLEMENTED | comerciantes + banqueros + NPCs quest con diálogo y misiones | VERIFIED | CHG-007 |
 | Trade | IMPLEMENTED | /comerciar + sesión con doble confirmación (RANGE 5 centralizado), swap atómico | VERIFIED | CHG-002+009 |
 | Professions | IMPLEMENTED | /recolectar finito 5-12m respawn, requiere pico/hacha | VERIFIED | CHG-011 escasez |
-| Crafting | IMPLEMENTED | 5 recetas (incl. herramientas) vía /craftear en ciudad + costo oro | VERIFIED | CHG-011 estación |
+| Crafting | IMPLEMENTED | 7 recetas (tools + torch×3/lantern) en ciudad + costo oro | VERIFIED | CHG-011+018 |
 | Resources | IMPLEMENTED | iron_ore/wood/gold_nugget — vetas superficie en colinas/montañas + agotamiento 5-12m + stock | VERIFIED | CHG-011+012 escasez |
 | Factions | IMPLEMENTED | reinos con territorio (getKingdomAt), reputación por caza | VERIFIED | CHG-006 |
 | Clans | IMPLEMENTED | /clan crear/invitar/salir, hasta 8 miembros, chat /c, panel visible, persistido en SQLite | VERIFIED | CHG-006; loadClansFromDB al iniciar |

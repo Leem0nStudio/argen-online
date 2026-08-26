@@ -55,4 +55,20 @@ export const RECIPES: Recipe[] = [
     ingredients: [{ itemId: "wood", quantity: 3 }, { itemId: "iron_ore", quantity: 1 }],
     goldCost: 12,
   },
+  {
+    id: "torch",
+    name: "Antorcha",
+    resultItemId: "torch",
+    resultQuantity: 3,
+    ingredients: [{ itemId: "wood", quantity: 2 }, { itemId: "bandage", quantity: 1 }],
+    goldCost: 5,
+  },
+  {
+    id: "lantern",
+    name: "Farol",
+    resultItemId: "lantern",
+    resultQuantity: 1,
+    ingredients: [{ itemId: "iron_ore", quantity: 4 }, { itemId: "gold_nugget", quantity: 1 }, { itemId: "wood", quantity: 2 }],
+    goldCost: 30,
+  },
 ];

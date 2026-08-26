@@ -274,22 +274,25 @@ export class GameEngine {
       this.dayOverlay.endFill();
     }
 
-    // Point lights — radial falloff (screen-space, punch holes in darkness)
+    // Point lights — radial falloff (screen-space)
     this.lightGfx.clear();
     if (alpha > 0.05) {
       this.lightFlickerPhase += 0.07;
       const flicker = 0.92 + Math.sin(this.lightFlickerPhase) * 0.08 + Math.sin(this.lightFlickerPhase * 1.7) * 0.04;
       const lights: { wx: number; wy: number; radius: number; color: number; alpha: number }[] = [];
-      // Player light
-      if (this.localPlayer) lights.push({ wx: this.localPlayer.x, wy: this.localPlayer.y, radius: 140 * flicker, color: 0xffd080, alpha: 0.95 });
+      // Player light — radius depends on lantern/torch
+      if (this.localPlayer) {
+        const hasLantern = (this.localPlayer as any).equipment?.shield === "lantern";
+        const hasTorch = (this.localPlayer.buffs ?? []).some((b: any) => b.type === "torch_light" && b.expiresAt > Date.now());
+        const base = hasLantern ? 185 : hasTorch ? 145 : 72;
+        const col = hasLantern ? 0xffe8a0 : hasTorch ? 0xffd080 : 0xffc080;
+        lights.push({ wx: this.localPlayer.x, wy: this.localPlayer.y, radius: base * flicker, color: col, alpha: hasLantern ? 1.0 : hasTorch ? 0.9 : 0.55 });
+      }
       for (const [, c] of this.otherPlayers) {
-        const wx = (c.x - this.camera.x - this.screenW / 2) / 32 + (this.localPlayer?.x ?? 0); // approx, but use container pos
-        // Use sprite world pos directly: c.x is world*32+16, camera applied to worldContainer
-        // For point lights we need screen pos: worldPos *32 + camera
-        // So compute screen from world
+        // Approximate other player light — check if they have lantern/torch via stored data not available, use base 110
         const worldX = (c.x - 16) / 32;
         const worldY = (c.y - 16) / 32;
-        lights.push({ wx: worldX, wy: worldY, radius: 110, color: 0xffd080, alpha: 0.6 });
+        lights.push({ wx: worldX, wy: worldY, radius: 110 * flicker, color: 0xffd080, alpha: 0.6 });
       }
       // Torches in settlement
       if (this.currentMap) {

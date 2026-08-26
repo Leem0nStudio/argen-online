@@ -93,7 +93,42 @@ export function useConsumable(playerId: string, inventorySlot: number): boolean 
   if (!invItem) return false;
 
   const itemDef = ITEMS[invItem.itemId];
-  if (!itemDef || itemDef.type !== "consumable") return false;
+  if (!itemDef) return false;
+
+  // Antorcha: otorga buff de luz 5 min, sin curar
+  if (invItem.itemId === "torch") {
+    if (!player.buffs) player.buffs = [];
+    // Evita stack infinito: extiende duración si ya tiene
+    const now = Date.now();
+    const existing = player.buffs.find(b => b.type === "torch_light");
+    if (existing) existing.expiresAt = now + 5 * 60 * 1000;
+    else player.buffs.push({ type: "torch_light", value: 1, expiresAt: now + 5 * 60 * 1000 });
+    invItem.quantity -= 1;
+    if (invItem.quantity <= 0) player.inventory = player.inventory.filter(i => i.slot !== inventorySlot);
+    return true;
+  }
+
+  // Farol es shield, no consumible — si está en inventario y se "usa", lo equipa y no se consume
+  if (invItem.itemId === "lantern") {
+    // Equipar farol si no está equipado
+    if (player.equipment.shield !== "lantern") {
+      // Reusa equipItem logic: necesita slot libre si hay shield previo
+      const cur = player.equipment.shield;
+      if (cur) {
+        const invWithout = player.inventory.filter(i => i.slot !== inventorySlot);
+        const ns = findFreeSlot(invWithout);
+        if (ns === -1) return false;
+        player.inventory = invWithout;
+        player.inventory.push({ itemId: cur, quantity: 1, slot: ns });
+      } else {
+        player.inventory = player.inventory.filter(i => i.slot !== inventorySlot);
+      }
+      (player.equipment as unknown as Record<string, string | null>).shield = "lantern";
+    }
+    return true;
+  }
+
+  if (itemDef.type !== "consumable") return false;
 
   if (itemDef.stats?.hp) {
     player.stats.hp = Math.min(player.stats.maxHp, player.stats.hp + itemDef.stats.hp);
