@@ -3,6 +3,7 @@
 // ============================================================
 
 import { v4 as uuidv4 } from "uuid";
+import { CLAN_INVITE_TTL_MS, CLAN_MAX_MEMBERS } from "../../shared/constants.js";
 import { Players } from "./state.js";
 import {
   dbCreateClan, dbAddClanMember, dbRemoveClanMember, dbDeleteClan, dbUpdateClanLeader, dbGetClans,
@@ -20,8 +21,7 @@ const clans = new Map<string, Clan>(); // by id
 const memberClan = new Map<string, string>(); // playerId -> clan id
 const pendingInvites = new Map<string, { clanId: string; fromId: string; fromName: string; expiresAt: number }>();
 
-export const CLAN_MAX_MEMBERS = 8;
-export const CLAN_INVITE_TTL_MS = 30_000;
+export { CLAN_MAX_MEMBERS, CLAN_INVITE_TTL_MS };
 
 export function getClanOf(playerId: string): Clan | undefined {
   const cid = memberClan.get(playerId);

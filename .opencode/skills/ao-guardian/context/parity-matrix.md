@@ -17,10 +17,10 @@
 | PvE | IMPLEMENTED | spawns, IA básica, loot, quests de caza | VERIFIED | CHG-007 |
 | PvP | IMPLEMENTED | criminalidad 5min, santuario Ciudad (legacy+procedural) verificado, botín al asesino | VERIFIED | CHG-008 fix santuario WorldMap fallback |
 | NPCs | IMPLEMENTED | comerciantes + banqueros + NPCs quest con diálogo y misiones | VERIFIED | CHG-007 |
-| Trade | IMPLEMENTED | /comerciar + sesión con doble confirmación, swap atómico servidor | VERIFIED | CHG-002; UI por prompts (mejorable) |
-| Professions | PARTIAL | recolección vía /recolectar en depósitos/bosques + cooldown | VERIFIED | CHG-004 |
-| Crafting | IMPLEMENTED | 3 recetas (escudo madera, espada hierro, cota malla) vía /craftear | VERIFIED | CHG-004 |
-| Resources | IMPLEMENTED | iron_ore, wood, gold_nugget recolectables del mundo | VERIFIED | CHG-004; v1 infinito sin agotamiento |
+| Trade | IMPLEMENTED | /comerciar + sesión con doble confirmación (RANGE 5 centralizado), swap atómico | VERIFIED | CHG-002+009 |
+| Professions | PARTIAL | /recolectar cooldown 3s centralizado, sin herramienta | VERIFIED | CHG-004+009 |
+| Crafting | IMPLEMENTED | 3 recetas vía /craftear (invoca constants centralizados) | VERIFIED | CHG-004 |
+| Resources | IMPLEMENTED | iron_ore/wood/gold_nugget + Ground TTL 5m cap 200 | VERIFIED | CHG-009 Ground purge |
 | Factions | IMPLEMENTED | reinos con territorio (getKingdomAt), reputación por caza | VERIFIED | CHG-006 |
 | Clans | IMPLEMENTED | /clan crear/invitar/salir, hasta 8 miembros, chat /c, panel visible, persistido en SQLite | VERIFIED | CHG-006; loadClansFromDB al iniciar |
 | Party | IMPLEMENTED | /party, XP compartida con bonus 1.25x, chat /p, roster visible | VERIFIED | CHG-003; sin loot distribution ni HP de miembros | |

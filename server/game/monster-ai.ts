@@ -316,7 +316,7 @@ export function tickMonsterAI(): { events: { type: string; data: any }[] } {
 
     // Low HP flee logic
     if (monster.hp > 0 && monster.hp < monster.maxHp * MONSTER_FLEE_HP_PCT &&
-        monster.aiState !== "flee" && monster.aiState !== "return") {
+        (monster.aiState as string) !== "flee" && (monster.aiState as string) !== "return") {
       const fleeTarget = findNearestPlayer(monster);
       if (fleeTarget) {
         monster.targetId = fleeTarget.id;

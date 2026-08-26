@@ -131,8 +131,11 @@ export function bankWithdrawItem(playerId: string, itemId: string, quantity: num
 }
 
 export function registerPlayer(username: string, password: string, characterClass: string, race: string = "humano"): string {
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) throw new Error("Nombre inválido (3-20 alfanumérico)");
+  if (!password || password.length < 3 || password.length > 64) throw new Error("Contraseña inválida");
+  if (!["warrior","mage","archer","paladin"].includes(characterClass)) throw new Error("Clase inválida");
   const id = uuidv4();
-  const hash = bcrypt.hashSync(password, 8);
+  const hash = bcrypt.hashSync(password, 10);
 
   const stats: Record<string, { str: number; dex: number; int: number; con: number; hp: number; mp: number }> = {
     warrior: { str: 8, dex: 4, int: 2, con: 8, hp: 120, mp: 30 },
@@ -296,7 +299,7 @@ export const savePlayerFull = (() => {
         for (const item of p.inventory) invStmt.run(p.id, item.itemId, item.quantity, item.slot);
         db.prepare("DELETE FROM equipment WHERE player_id = ?").run(p.id);
         const eqStmt = db.prepare("INSERT INTO equipment (player_id, slot, item_id) VALUES (?, ?, ?)");
-        for (const [slot, itemId] of Object.entries(p.equipment as Record<string, string | null>)) {
+        for (const [slot, itemId] of Object.entries(p.equipment as unknown as Record<string, string | null>)) {
           if (itemId) eqStmt.run(p.id, slot, itemId);
         }
       });

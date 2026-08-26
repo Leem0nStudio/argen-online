@@ -9,6 +9,11 @@ export default defineConfig({
       "@shared": path.resolve(__dirname, "shared"),
     },
   },
+  test: {
+    include: ["tests/**/*.test.ts", "shared/**/*.test.ts", "server/**/*.test.ts"],
+    globals: true,
+    environment: "node",
+  },
   server: {
     host: "0.0.0.0",
     port: 5173,

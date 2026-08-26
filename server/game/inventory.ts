@@ -77,7 +77,7 @@ export function equipItem(playerId: string, inventorySlot: number): boolean {
     }
   }
 
-  (player.equipment as Record<string, string | null>)[slot] = invItem.itemId;
+  (player.equipment as unknown as Record<string, string | null>)[slot] = invItem.itemId;
   player.inventory = player.inventory.filter(i => i.slot !== inventorySlot);
   return true;
 }

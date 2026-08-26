@@ -5,10 +5,8 @@
 import type { PartyMemberInfo } from "../../shared/types.js";
 import { Players, type ActivePlayer } from "./state.js";
 
-export const PARTY_MAX_MEMBERS = 5;
-export const PARTY_XP_RANGE = 12;      // tiles (manhattan) to qualify for shared xp
-export const PARTY_XP_BONUS = 1.25;    // total pool multiplier — grouping pays
-export const PARTY_INVITE_TTL_MS = 30_000;
+import { PARTY_MAX_MEMBERS, PARTY_XP_RANGE, PARTY_XP_BONUS, PARTY_INVITE_TTL_MS } from "../../shared/constants.js";
+export { PARTY_MAX_MEMBERS, PARTY_XP_RANGE, PARTY_XP_BONUS, PARTY_INVITE_TTL_MS };
 
 export interface Party {
   id: string;
@@ -119,7 +117,7 @@ export function stateFor(party: Party) {
 export function sharedXpOnKill(
   killerId: string,
   baseXp: number,
-  grantFn: (player: ActivePlayer, xp: number) => boolean,
+  grantFn: (player: ActivePlayer, xp: number) => boolean | { leveledUp: boolean },
   monster: { mapId: string; x: number; y: number },
 ): { distributions: { playerId: string; username: string; xp: number; leveledUp: boolean }[] } {
   const killer = Players.get(killerId);
@@ -127,7 +125,8 @@ export function sharedXpOnKill(
 
   const party = getPartyOf(killerId);
   if (!party || party.memberIds.size <= 1) {
-    const leveledUp = grantFn(killer, baseXp);
+    const res: any = grantFn(killer, baseXp);
+    const leveledUp = typeof res === "object" ? !!res.leveledUp : !!res;
     return { distributions: [{ playerId: killerId, username: killer.username, xp: baseXp, leveledUp }] };
   }
 
@@ -145,11 +144,14 @@ export function sharedXpOnKill(
   const pool = Math.ceil(baseXp * PARTY_XP_BONUS);
   const share = Math.max(1, Math.floor(pool / qualifiers.length));
 
-  const distributions = qualifiers.map(p => ({
-    playerId: p.id,
-    username: p.username,
-    xp: share,
-    leveledUp: grantFn(p, share),
-  }));
+  const distributions = qualifiers.map(p => {
+    const res: any = grantFn(p, share);
+    return {
+      playerId: p.id,
+      username: p.username,
+      xp: share,
+      leveledUp: typeof res === "object" ? !!res.leveledUp : !!res,
+    };
+  });
   return { distributions };
 }

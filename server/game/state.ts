@@ -4,6 +4,7 @@
 
 import type { PlayerState, InventoryItem, GroundItem, ChatMessage, ActiveBuff } from "../../shared/types.js";
 import type { MonsterAIState } from "../../shared/types.js";
+import { GROUND_ITEM_TTL_MS, GROUND_MAX_ITEMS } from "../../shared/constants.js";
 
 // ---- Player State ----
 
@@ -60,8 +61,8 @@ export const Players = {
 };
 
 // ---- Ground Items ----
-
 const groundItems = new Map<string, GroundItem>();
+const groundCreatedAt = new Map<string, number>();
 
 export const Ground = {
   get(id: string): GroundItem | undefined {
@@ -69,16 +70,41 @@ export const Ground = {
   },
 
   set(item: GroundItem): void {
+    // Enforce cap: drop oldest if over limit
+    if (groundItems.size >= GROUND_MAX_ITEMS) {
+      let oldestId: string | null = null;
+      let oldestTime = Infinity;
+      for (const [gid, t] of groundCreatedAt) {
+        if (t < oldestTime) { oldestTime = t; oldestId = gid; }
+      }
+      if (oldestId) { groundItems.delete(oldestId); groundCreatedAt.delete(oldestId); }
+    }
     groundItems.set(item.id, item);
+    groundCreatedAt.set(item.id, Date.now());
   },
 
   delete(id: string): boolean {
+    groundCreatedAt.delete(id);
     return groundItems.delete(id);
   },
 
   onMap(mapId: string): GroundItem[] {
     return Array.from(groundItems.values()).filter(i => i.mapId === mapId);
   },
+
+  purgeExpired(now = Date.now()): string[] {
+    const expired: string[] = [];
+    for (const [id, created] of groundCreatedAt) {
+      if (now - created > GROUND_ITEM_TTL_MS) {
+        groundItems.delete(id);
+        expired.push(id);
+      }
+    }
+    for (const id of expired) groundCreatedAt.delete(id);
+    return expired;
+  },
+
+  count(): number { return groundItems.size; },
 };
 
 // ---- Chat ----
@@ -142,7 +168,7 @@ export const Monsters = {
     monsters.set(monster.id, monster);
   },
 
-  all(): IterableIterator<Monster> {
+  all(): IterableIterator<[string, Monster]> {
     return monsters.entries();
   },
 

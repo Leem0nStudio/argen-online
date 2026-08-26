@@ -52,9 +52,9 @@
 
 ## Known Gaps
 
-- Tests: 0 runners, `server/` sin type-check estricto (reveló 14 errores tsc al incluir).
-- Magic numbers dispersos (gather, trade, party) aún fuera de `constants.ts`.
-- Ground sin TTL/cap, broadcast global residual en algunos eventos.
+- Tests: vitest 4.1 con 4 tests xp/combat (CHG-009), `server/` ahora type-checked (`tsconfig` incluye server, 14 errores corregidos).
+- Constants: centralizados `GATHER/TRADE/PARTY/CLAN/GROUND` en `shared/constants.ts` (CHG-009).
+- Ground TTL 5m cap 200 con purge per-map (CHG-009); queda broadcast global residual en 5 handlers (futuro rooms).
 - Pérdida de muerte completa AO (fantasma/drop completo) pendiente Rift 71.
 
 ## Known Contradictions
@@ -64,4 +64,4 @@
 
 ## Last Updated
 
-2026-08-26 (CHG-008 — deuda P0 authority/XP/persistencia)
+2026-08-26 (CHG-009 — consolidación P1 tsc/constants/seguridad)

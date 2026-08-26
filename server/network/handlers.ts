@@ -347,7 +347,9 @@ export function setupHandlers(io: GameServer) {
     socket.on("trade:accept", () => {
       const playerId = socket.data.playerId;
       if (!playerId) return;
-      const session = Trade.accept(playerId);
+      const ids = Trade.accept(playerId);
+      if (!ids) return;
+      const session = Trade.getSession(ids.aId) ?? Trade.getSession(ids.bId);
       if (!session) return;
       for (const pid of [session.aId, session.bId]) {
         const partner = Players.get(pid === session.aId ? session.bId : session.aId)!;
@@ -720,9 +722,9 @@ export function setupHandlers(io: GameServer) {
       if (!player || player.statPoints <= 0) return;
 
       const stat = data.stat;
-      if (!player.stats[stat] && player.stats[stat] !== 0) return;
+      if (!player.stats[stat] && (player.stats as unknown as Record<string, number>)[stat] !== 0) return;
 
-      (player.stats as Record<string, number>)[stat] += 1;
+      (player.stats as unknown as Record<string, number>)[stat] += 1;
       player.statPoints -= 1;
 
       // Recalculate derived stats
@@ -768,7 +770,7 @@ export function setupHandlers(io: GameServer) {
         // Save before removing — atomic
         const removed = Players.delete(playerId);
         if (removed) {
-          try { savePlayerFull(removed as any); } catch { savePlayer(removed); saveInventory(playerId, removed.inventory); saveEquipment(playerId, removed.equipment as Record<string, string | null>); }
+          try { savePlayerFull(removed as any); } catch { savePlayer(removed); saveInventory(playerId, removed.inventory); saveEquipment(playerId, removed.equipment as unknown as Record<string, string | null>); }
         }
       }
       console.log(`[Socket] Disconnected: ${socket.id}`);

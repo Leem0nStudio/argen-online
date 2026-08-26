@@ -97,5 +97,22 @@ export const SKILL_UNLOCK_LEVELS: Record<number, string[]> = {
 };
 export const MAX_LEVEL = 50;
 
+// ---- Social ----
+export const PARTY_MAX_MEMBERS = 5;
+export const PARTY_XP_RANGE = 12;
+export const PARTY_XP_BONUS = 1.25;
+export const PARTY_INVITE_TTL_MS = 30_000;
+export const CLAN_MAX_MEMBERS = 8;
+export const CLAN_INVITE_TTL_MS = 30_000;
+export const TRADE_RANGE = 5;
+export const TRADE_INVITE_TTL_MS = 30_000;
+
+// ---- Gathering / Crafting ----
+export const GATHER_COOLDOWN_MS = 3000;
+
+// ---- Ground / Economy ----
+export const GROUND_ITEM_TTL_MS = 5 * 60 * 1000; // 5 min
+export const GROUND_MAX_ITEMS = 200;
+
 // ---- Client-only constants (non-numeric, safe for server import) ----
 export const ALL_WILDERNESS_MAPS = ["campo_norte", "campo_sur", "campo_oeste", "campo_este", "mazmorra_entrance", "mazmorra_profunda"] as const;

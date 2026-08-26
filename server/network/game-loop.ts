@@ -9,7 +9,7 @@ import {
   REGEN_INTERVAL, RESPAWN_CHECK_INTERVAL, POISON_TICK_INTERVAL,
   ALL_WILDERNESS_MAPS,
 } from "../../shared/constants.js";
-import { Players } from "../game/state.js";
+import { Players, Ground } from "../game/state.js";
 import { tickMonsterAI, respawnMonsters, getMonstersAsData } from "../game/monster-ai.js";
 import { addSystemMessage } from "../game/chat.js";
 
@@ -80,9 +80,21 @@ export function startGameLoop(io: GameServer) {
       }
     }
 
-    // ---- Monster respawn every second ----
+    // ---- Monster respawn + Ground TTL every second ----
     if (tick % RESPAWN_CHECK_INTERVAL === 0) {
       respawnMonsters();
+      const expired = Ground.purgeExpired();
+      if (expired.length > 0) {
+        // Broadcast per-map to avoid cross-map leakage
+        const maps = new Set<string>();
+        for (const p of Players.all()) maps.add(p.mapId);
+        for (const mapId of maps) {
+          const items = Ground.onMap(mapId);
+          for (const p of Players.onMap(mapId)) {
+            io.to(p.id).emit("groundItems:update", items);
+          }
+        }
+      }
     }
 
     // ---- Broadcast monster positions every 500ms ----

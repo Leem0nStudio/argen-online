@@ -4,7 +4,7 @@
 
 import type { TradeOffer } from "../../shared/types.js";
 import { Players, type ActivePlayer } from "./state.js";
-import { MAX_INVENTORY_SLOTS } from "../../shared/constants.js";
+import { MAX_INVENTORY_SLOTS, TRADE_RANGE, TRADE_INVITE_TTL_MS } from "../../shared/constants.js";
 
 export interface TradeSession {
   aId: string;
@@ -12,8 +12,7 @@ export interface TradeSession {
   aOffer: TradeOffer;
   bOffer: TradeOffer;
 }
-
-const TRADE_RANGE = 5;
+export { TRADE_RANGE, TRADE_INVITE_TTL_MS };
 
 const sessions = new Map<string, TradeSession>(); // keyed by either participant id
 const pendingInvites = new Map<string, { fromId: string; fromName: string; expiresAt: number }>(); // keyed by target id
@@ -37,7 +36,7 @@ export function invite(fromId: string, fromName: string, targetUsername: string)
   if (Math.abs(target.x - from.x) + Math.abs(target.y - from.y) > TRADE_RANGE) return { ok: false, error: "Está demasiado lejos" };
   if (sessions.has(target.id)) return { ok: false, error: "Ya está comerciando con otro" };
 
-  pendingInvites.set(target.id, { fromId, fromName, expiresAt: Date.now() + 30_000 });
+  pendingInvites.set(target.id, { fromId, fromName, expiresAt: Date.now() + TRADE_INVITE_TTL_MS });
   return { ok: true, targetId: target.id };
 }
 

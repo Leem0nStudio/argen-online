@@ -4,10 +4,11 @@
 
 import { WT } from "../../shared/world-gen.js";
 import { MAPS } from "../../shared/maps.js";
+import { GATHER_COOLDOWN_MS, MAX_INVENTORY_SLOTS } from "../../shared/constants.js";
 import { Players } from "./state.js";
 import { getWorldMap } from "./world.js";
 
-export const GATHER_COOLDOWN_MS = 3000;
+export { GATHER_COOLDOWN_MS };
 
 const lastGather = new Map<string, number>();
 
@@ -70,7 +71,7 @@ export function gather(playerId: string): { ok: boolean; message: string; itemId
   } else {
     const usedSlots = new Set(player.inventory.map(i => i.slot));
     let slot = -1;
-    for (let s = 0; s < 20; s++) { if (!usedSlots.has(s)) { slot = s; break; } }
+    for (let s = 0; s < MAX_INVENTORY_SLOTS; s++) { if (!usedSlots.has(s)) { slot = s; break; } }
     if (slot === -1) return { ok: false, message: "Inventario lleno.", quantity: 0 };
     player.inventory.push({ itemId: yield_.itemId, quantity, slot });
   }

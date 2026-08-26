@@ -35,7 +35,7 @@ export function getEffectiveStrength(player: PlayerState): number {
 export function getArmorDefense(player: PlayerState): number {
   let defense = 0;
   for (const slot of ["armor", "shield", "boots", "ring"]) {
-    const itemId = (player.equipment as Record<string, string | null>)[slot];
+    const itemId = (player.equipment as unknown as Record<string, string | null>)[slot];
     if (itemId) {
       const item = ITEMS[itemId];
       if (item?.stats?.defense) defense += item.stats.defense;
