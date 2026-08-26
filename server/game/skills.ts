@@ -6,7 +6,10 @@ import type { SkillEvent } from "../../shared/types.js";
 import { SKILLS, MapZone } from "../../shared/types.js";
 import { MAPS } from "../../shared/maps.js";
 import { Players, Monsters, type ActivePlayer } from "./state.js";
-import { getEffectiveStrength, getArmorDefense, cleanBuffs, hasInvuln, grantXp, killMonster } from "./combat.js";
+import { getEffectiveStrength, getArmorDefense, cleanBuffs, hasInvuln, grantXp, killMonster, isCriminal } from "./combat.js";
+import { PVP_CRIMINAL_DURATION_MS } from "../../shared/constants.js";
+import { addReputation } from "../db/database.js";
+import { getWorldMap } from "./world.js";
 
 function getTargetX(targetId: string): number {
   const m = Monsters.get(targetId);
@@ -113,6 +116,19 @@ export function useSkill(playerId: string, skillId: string, targetId?: string): 
     if (dmgPlayer && dmgPlayer.mapId === player.mapId && !Players.isDead(targetId)) {
       const map = MAPS[dmgPlayer.mapId];
       if (map?.zone !== MapZone.City) {
+        // Attacking an innocent player with a spell marks the caster criminal
+        if (!isCriminal(dmgPlayer, now)) {
+          player.criminalUntil = now + PVP_CRIMINAL_DURATION_MS;
+          try {
+            const wm = getWorldMap();
+            const kingdom = wm.getKingdomAt(player.x, player.y) ?? wm.world.kingdoms[0]?.name;
+            if (kingdom) {
+              const next = addReputation(player.id, kingdom, -5);
+              if (!player.reputation) player.reputation = {};
+              player.reputation[kingdom] = next;
+            }
+          } catch {}
+        }
         let totalDmg = skill.damage + Math.floor(getEffectiveStrength(player) * 0.3);
         totalDmg = Math.max(1, totalDmg - getArmorDefense(dmgPlayer));
         if (!hasInvuln(dmgPlayer)) {

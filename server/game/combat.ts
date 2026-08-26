@@ -9,8 +9,14 @@ import { ITEMS } from "../../shared/items.js";
 import {
   BASE_DAMAGE, CRIT_CHANCE_BASE, CRIT_MULTIPLIER,
   ATTACK_COOLDOWN_MS, ATTACK_RANGE, GOLD_LOSS_ON_DEATH_PCT,
+  PVP_CRIMINAL_DURATION_MS,
 } from "../../shared/constants.js";
 import { Players, Monsters, AttackCooldowns, Ground, type ActivePlayer, type Monster } from "./state.js";
+import { sharedXpOnKill } from "./party.js";
+import { gainReputationForKill } from "./reputation.js";
+import { onMonsterKill } from "./quest.js";
+import { addReputation } from "../db/database.js";
+import { getWorldMap } from "./world.js";
 import { v4 as uuidv4 } from "uuid";
 
 // ---- Stats ----
@@ -87,6 +93,29 @@ export function cleanBuffs(player: PlayerState): void {
   player.buffs = player.buffs.filter(b => b.expiresAt > now);
 }
 
+// ---- PvP criminality ----
+
+/** A player is criminal while the flag is active. Criminals are fair game. */
+export function isCriminal(player: PlayerState, now = Date.now()): boolean {
+  return (player.criminalUntil ?? 0) > now;
+}
+
+/** Attacking an innocent player marks the aggressor as criminal and dents faction rep. */
+function markCriminalIfInnocent(attacker: ActivePlayer, defender: PlayerState, now: number): void {
+  if (!isCriminal(defender, now)) {
+    attacker.criminalUntil = now + PVP_CRIMINAL_DURATION_MS;
+    try {
+      const wm = getWorldMap();
+      const kingdom = wm.getKingdomAt(attacker.x, attacker.y) ?? wm.world.kingdoms[0]?.name;
+      if (kingdom) {
+        const next = addReputation(attacker.id, kingdom, -5);
+        if (!attacker.reputation) attacker.reputation = {};
+        attacker.reputation[kingdom] = next;
+      }
+    } catch {}
+  }
+}
+
 // ---- Player vs Player ----
 
 export function tryAttack(attackerId: string, defenderId: string): DamageEvent | null {
@@ -110,10 +139,12 @@ export function tryAttack(attackerId: string, defenderId: string): DamageEvent |
 
     if (hasDodge(defender) || hasInvuln(defender)) {
       AttackCooldowns.set(attackerId, now);
+      markCriminalIfInnocent(attacker, defender, now);
       return { attackerId, defenderId, damage: 0, isCrit: false, timestamp: now };
     }
 
     AttackCooldowns.set(attackerId, now);
+    markCriminalIfInnocent(attacker, defender, now);
     let damage = getAttackDamage(attacker);
     const defense = getArmorDefense(defender);
     damage = Math.max(1, damage - defense);
@@ -128,6 +159,22 @@ export function tryAttack(attackerId: string, defenderId: string): DamageEvent |
       const goldDrop = Math.floor(defender.gold * GOLD_LOSS_ON_DEATH_PCT);
       defender.gold -= goldDrop;
       attacker.gold += goldDrop; // the victor loots the fallen
+      // Drop one random inventory item to the ground (AO-style)
+      if (defender.inventory.length > 0) {
+        const idx = Math.floor(Math.random() * defender.inventory.length);
+        const item = defender.inventory[idx];
+        const dropQty = Math.min(item.quantity, Math.max(1, Math.ceil(item.quantity * 0.5)));
+        Ground.set({
+          id: uuidv4(),
+          itemId: item.itemId,
+          quantity: dropQty,
+          x: defender.x,
+          y: defender.y,
+          mapId: defender.mapId,
+        });
+        item.quantity -= dropQty;
+        if (item.quantity <= 0) defender.inventory = defender.inventory.filter(i => i.slot !== item.slot);
+      }
     }
 
     return { attackerId, defenderId, damage, isCrit: crit, timestamp: now };
@@ -180,13 +227,23 @@ export function attackMonster(playerId: string, monsterId: string): DamageEvent 
 }
 
 /**
- * Centralized monster death: grants XP to the killer, drops loot on the
- * ground and resets the monster state for respawn. All kill paths (melee,
- * single-target skills, AoE) must go through here.
+ * Centralized monster death: grants XP to the killer (shared with nearby
+ * party members), drops loot on the ground and resets the monster state for
+ * respawn. All kill paths (melee, single-target skills, AoE) must go through here.
  */
 export function killMonster(killer: ActivePlayer, monster: Monster, now = Date.now()): { xpGained: number; levelUp: boolean } {
+  // Party-shared XP (solo kills behave exactly as before)
+  const { distributions } = sharedXpOnKill(killer.id, monster.xpReward, grantXp, monster);
   const xpGained = monster.xpReward;
-  const levelUp = grantXp(killer, xpGained);
+  const levelUp = distributions.some(d => d.leveledUp);
+  // Reputation for all members who shared the kill + quest progress
+  for (const d of distributions) {
+    try {
+      const p = Players.get(d.playerId);
+      if (p) gainReputationForKill(d.playerId, monster.mapId, p.x, p.y);
+      onMonsterKill(d.playerId, monster.name);
+    } catch {}
+  }
 
   // Drop loot — one random item from the loot table
   if (monster.loot.length > 0) {

@@ -364,7 +364,7 @@ export class GameEngine {
       for (let x = 0; x < map.width; x++) {
         const tileId = map.tiles[y]?.[x] ?? 0;
         const g = new PIXI.Graphics();
-        const useWorldPalette = mapId.startsWith("settlement_");
+        const useWorldPalette = mapId.startsWith("settlement_") || mapId.startsWith("poi_");
         const color = (useWorldPalette ? WT_COLORS[tileId] : TILE_COLORS[tileId]) ?? TILE_COLORS[tileId] ?? 0x222222;
 
         g.beginFill(color);
@@ -810,7 +810,7 @@ export class GameEngine {
   addOtherPlayer(player: PlayerState) {
     if (this.otherPlayers.has(player.id)) { this.updateOtherPlayer(player); return; }
     const container = new PIXI.Container();
-    drawEnhancedCharacter(container, CLASS_COLORS[player.characterClass] ?? 0xcccccc, false, player.characterClass, player.stats.hp / player.stats.maxHp, player.username, player.level);
+    drawEnhancedCharacter(container, this.playerColor(player), false, player.characterClass, player.stats.hp / player.stats.maxHp, player.username, player.level);
     container.x = player.x * TILE_SIZE + TILE_SIZE / 2;
     container.y = player.y * TILE_SIZE + TILE_SIZE / 2;
     container.eventMode = "static";
@@ -825,7 +825,13 @@ export class GameEngine {
     if (!container) { this.addOtherPlayer(player); return; }
     container.x = player.x * TILE_SIZE + TILE_SIZE / 2;
     container.y = player.y * TILE_SIZE + TILE_SIZE / 2;
-    drawEnhancedCharacter(container, CLASS_COLORS[player.characterClass] ?? 0xcccccc, false, player.characterClass, player.stats.hp / player.stats.maxHp, player.username, player.level);
+    drawEnhancedCharacter(container, this.playerColor(player), false, player.characterClass, player.stats.hp / player.stats.maxHp, player.username, player.level);
+  }
+
+  /** Criminals render red for everyone */
+  private playerColor(player: PlayerState): number {
+    if ((player.criminalUntil ?? 0) > Date.now()) return 0xcc2222;
+    return CLASS_COLORS[player.characterClass] ?? 0xcccccc;
   }
 
   removeOtherPlayer(id: string) {
@@ -1007,6 +1013,7 @@ export class GameEngine {
   };
 
   canWalk(x: number, y: number): boolean {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
     if (this.isWorldMode) {
       if (!this.localPlayer) return false;
       const chunk = this.worldChunks.get(`${Math.floor(x / CHUNK_SIZE)},${Math.floor(y / CHUNK_SIZE)}`);
@@ -1018,7 +1025,7 @@ export class GameEngine {
       return !WT_BLOCKED.has(tile);
     }
     if (!this.currentMap) return false;
-    const settlementMode = this.currentMap.id.startsWith("settlement_");
+    const settlementMode = this.currentMap.id.startsWith("settlement_") || this.currentMap.id.startsWith("poi_");
     if (x < 0 || x >= this.currentMap.width || y < 0 || y >= this.currentMap.height) return false;
     const tile = this.currentMap.tiles[y]?.[x];
     if (tile === undefined) return false;

@@ -508,3 +508,86 @@ html, body, #root {
   }
 }
 
+
+/* ===================== BANK & TRADE ===================== */
+.bank-section { margin-top: 8px; }
+.bank-gold { font-size: 0.9rem; margin-bottom: 6px; color: #ffd700; }
+.bank-actions { display: flex; gap: 6px; margin-bottom: 8px; }
+.bank-actions button {
+  flex: 1; padding: 8px; background: rgba(139,115,85,0.25);
+  border: 1px solid var(--border-gold, #8b7355); border-radius: 8px;
+  color: #e0d5c1; cursor: pointer; font-size: 0.85rem;
+}
+.bank-items { max-height: 200px; overflow-y: auto; }
+.bank-empty { color: #888; font-size: 0.8rem; padding: 4px; text-align: center; }
+.bank-deposit-hint { color: #aaa; font-size: 0.72rem; text-align: center; padding: 4px; }
+
+.trade-panel {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  background: rgba(10,10,15,0.96); border: 2px solid var(--border-gold, #8b7355);
+  border-radius: 12px; padding: 14px; z-index: 300; width: min(420px, 92vw);
+}
+.trade-columns { display: flex; gap: 10px; margin: 10px 0; }
+.trade-col { flex: 1; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px; }
+.trade-col-title { font-size: 0.85rem; color: #d4a843; margin-bottom: 6px; text-align: center; }
+.trade-gold { text-align: center; color: #ffd700; margin-bottom: 6px; font-size: 0.9rem; }
+.trade-confirm { text-align: center; font-size: 0.75rem; margin-top: 8px; color: #888; }
+.trade-confirm.ok { color: #44cc44; }
+.trade-actions { display: flex; gap: 6px; margin-top: 8px; }
+.trade-actions button {
+  flex: 1; padding: 8px; background: rgba(139,115,85,0.25);
+  border: 1px solid var(--border-gold, #8b7355); border-radius: 8px;
+  color: #e0d5c1; cursor: pointer; font-size: 0.85rem;
+}
+.trade-ok { background: rgba(68,204,68,0.2) !important; border-color: #44cc44 !important; }
+.trade-no { background: rgba(204,51,51,0.2) !important; border-color: #cc3333 !important; }
+.trade-notice {
+  position: absolute; top: calc(60px + var(--safe-top)); left: 50%; transform: translateX(-50%);
+  background: rgba(10,10,15,0.9); border: 1px solid var(--border-gold, #8b7355);
+  border-radius: 8px; padding: 8px 14px; z-index: 300; font-size: 0.85rem; color: #e0d5c1;
+}
+
+/* ===================== PARTY ===================== */
+.party-panel {
+  position: absolute; top: calc(150px + var(--safe-top)); right: 8px;
+  background: rgba(10,10,15,0.8); border: 1px solid var(--border-gold, #8b7355);
+  border-radius: 10px; padding: 8px; z-index: 100; min-width: 130px;
+}
+.party-title { font-size: 0.8rem; color: #d4a843; margin-bottom: 6px; }
+.party-member {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-size: 0.78rem; color: #e0d5c1; padding: 2px 4px;
+}
+.party-member.leader { color: #ffd700; }
+.party-leave {
+  margin-top: 6px; width: 100%; padding: 4px;
+  background: rgba(204,51,51,0.2); border: 1px solid #cc3333;
+  border-radius: 6px; color: #e0d5c1; font-size: 0.72rem; cursor: pointer;
+}
+
+/* ===================== CRAFTING ===================== */
+.craft-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; max-height: 300px; overflow-y: auto; }
+.craft-recipe {
+  background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px;
+  border: 1px solid rgba(139,115,85,0.2);
+}
+.craft-recipe.available { border-color: #44cc44; }
+.craft-head { display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; color: #e0d5c1; }
+.craft-head button {
+  padding: 4px 12px; background: rgba(68,204,68,0.2); border: 1px solid #44cc44;
+  border-radius: 6px; color: #e0d5c1; cursor: pointer; font-size: 0.78rem;
+}
+.craft-ing { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px; font-size: 0.75rem; }
+.craft-ing .have { color: #88cc88; }
+.craft-ing .missing { color: #cc6666; }
+
+/* ===================== QUEST HUD ===================== */
+.quest-hud { position: absolute; bottom: calc(80px + var(--safe-bottom)); left: 8px; z-index: 100; pointer-events: none; }
+.quest-card { background: rgba(10,10,15,0.85); border: 1px solid #8b7355; border-radius: 8px; padding: 8px; min-width: 180px; }
+.quest-title { font-size: 0.8rem; color: #d4a843; }
+.quest-progress { font-size: 0.75rem; color: #e0d5c1; margin: 4px 0; }
+.quest-actions button { font-size: 0.7rem; padding: 4px 8px; border-radius: 6px; border: 1px solid #44cc44; background: rgba(68,204,68,0.2); color: #e0d5c1; cursor: pointer; pointer-events: auto; }
+.quest-empty { font-size: 0.7rem; color: var(--text-dim); background: rgba(10,10,15,0.6); padding: 6px 8px; border-radius: 6px; }
+.quest-list { display:flex; flex-direction:column; gap:6px; }
+.quest-option { display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; background:rgba(255,255,255,0.05); padding:6px 8px; border-radius:6px; }
+.quest-option button { font-size:0.7rem; padding:3px 8px; border-radius:6px; border:1px solid #d4a843; background:rgba(212,168,67,0.2); color:#e0d5c1; cursor:pointer; }

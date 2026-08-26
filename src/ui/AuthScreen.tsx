@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { CharacterClass } from "@shared/types";
+import { CharacterClass, Race } from "@shared/types";
 
 interface Props {
   onLogin: (username: string, password: string) => void;
-  onRegister: (username: string, password: string, characterClass: CharacterClass) => void;
+  onRegister: (username: string, password: string, characterClass: CharacterClass, race?: Race) => void;
   error: string;
 }
 
@@ -14,17 +14,26 @@ const CLASSES = [
   { id: CharacterClass.Paladin, icon: "🛡️", name: "Paladín", desc: "Equilibrio" },
 ];
 
+const RACES = [
+  { id: Race.Humano, icon: "🧑", name: "Humano", desc: "Equilibrado" },
+  { id: Race.Elfo, icon: "🧝", name: "Elfo", desc: "Ágil y mágico" },
+  { id: Race.ElfoOscuro, icon: "🧝‍♂️", name: "Elfo Oscuro", desc: "Mago oscuro" },
+  { id: Race.Enano, icon: "🧔", name: "Enano", desc: "Fuerte y resistente" },
+  { id: Race.Gnomo, icon: "🧙", name: "Gnomo", desc: "Pequeño sabio" },
+];
+
 export default function AuthScreen({ onLogin, onRegister, error }: Props) {
   const [tab, setTab] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [selectedClass, setSelectedClass] = useState<CharacterClass>(CharacterClass.Warrior);
+  const [selectedRace, setSelectedRace] = useState<Race>(Race.Humano);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) return;
     if (tab === "login") onLogin(username.trim(), password);
-    else onRegister(username.trim(), password, selectedClass);
+    else onRegister(username.trim(), password, selectedClass, selectedRace);
   };
 
   return (
@@ -88,6 +97,22 @@ export default function AuthScreen({ onLogin, onRegister, error }: Props) {
                     <span className="class-icon">{c.icon}</span>
                     {c.name}
                     <div style={{ fontSize: "0.7rem", color: "var(--text-dim)" }}>{c.desc}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="auth-field" style={{ marginTop: "0.8rem" }}>
+                <label>Raza</label>
+              </div>
+              <div className="class-select">
+                {RACES.map((r) => (
+                  <div
+                    key={r.id}
+                    className={`class-option ${selectedRace === r.id ? "selected" : ""}`}
+                    onClick={() => setSelectedRace(r.id)}
+                  >
+                    <span className="class-icon">{r.icon}</span>
+                    {r.name}
+                    <div style={{ fontSize: "0.7rem", color: "var(--text-dim)" }}>{r.desc}</div>
                   </div>
                 ))}
               </div>

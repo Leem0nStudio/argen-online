@@ -53,10 +53,82 @@ export function initDB() {
       PRIMARY KEY (player_id, slot),
       FOREIGN KEY (player_id) REFERENCES players(id)
     );
+
+    CREATE TABLE IF NOT EXISTS bank (
+      player_id TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      quantity INTEGER DEFAULT 1,
+      PRIMARY KEY (player_id, item_id),
+      FOREIGN KEY (player_id) REFERENCES players(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS clans (
+      id TEXT PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      leader_id TEXT NOT NULL,
+      created_at INTEGER DEFAULT 0,
+      FOREIGN KEY (leader_id) REFERENCES players(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS clan_members (
+      clan_id TEXT NOT NULL,
+      player_id TEXT NOT NULL,
+      PRIMARY KEY (clan_id, player_id),
+      FOREIGN KEY (clan_id) REFERENCES clans(id),
+      FOREIGN KEY (player_id) REFERENCES players(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS reputation (
+      player_id TEXT NOT NULL,
+      kingdom TEXT NOT NULL,
+      value INTEGER DEFAULT 0,
+      PRIMARY KEY (player_id, kingdom),
+      FOREIGN KEY (player_id) REFERENCES players(id)
+    );
   `);
+
+  // Migrations for existing DBs
+  try { db.exec("ALTER TABLE players ADD COLUMN bank_gold INTEGER DEFAULT 0"); } catch { /* already exists */ }
+  try { db.exec("ALTER TABLE players ADD COLUMN race TEXT DEFAULT 'humano'"); } catch { /* already exists */ }
 }
 
-export function registerPlayer(username: string, password: string, characterClass: string): string {
+// ---- Bank ----
+
+export function getBankGold(playerId: string): number {
+  const row = db.prepare("SELECT bank_gold FROM players WHERE id = ?").get(playerId) as any;
+  return row?.bank_gold ?? 0;
+}
+
+export function setBankGold(playerId: string, amount: number): void {
+  db.prepare("UPDATE players SET bank_gold = ? WHERE id = ?").run(amount, playerId);
+}
+
+export function getBankItems(playerId: string): InventoryItem[] {
+  return db.prepare("SELECT item_id AS itemId, quantity, -1 AS slot FROM bank WHERE player_id = ?").all(playerId) as unknown as InventoryItem[];
+}
+
+export function bankDepositItem(playerId: string, itemId: string, quantity: number): boolean {
+  const row = db.prepare("SELECT quantity FROM bank WHERE player_id = ? AND item_id = ?").get(playerId, itemId) as any;
+  if (row) {
+    db.prepare("UPDATE bank SET quantity = quantity + ? WHERE player_id = ? AND item_id = ?").run(quantity, playerId, itemId);
+  } else {
+    db.prepare("INSERT INTO bank (player_id, item_id, quantity) VALUES (?, ?, ?)").run(playerId, itemId, quantity);
+  }
+  return true;
+}
+
+export function bankWithdrawItem(playerId: string, itemId: string, quantity: number): boolean {
+  const row = db.prepare("SELECT quantity FROM bank WHERE player_id = ? AND item_id = ?").get(playerId, itemId) as any;
+  if (!row || row.quantity < quantity) return false;
+  if (row.quantity === quantity) {
+    db.prepare("DELETE FROM bank WHERE player_id = ? AND item_id = ?").run(playerId, itemId);
+  } else {
+    db.prepare("UPDATE bank SET quantity = quantity - ? WHERE player_id = ? AND item_id = ?").run(quantity, playerId, itemId);
+  }
+  return true;
+}
+
+export function registerPlayer(username: string, password: string, characterClass: string, race: string = "humano"): string {
   const id = uuidv4();
   const hash = bcrypt.hashSync(password, 8);
 
@@ -67,7 +139,17 @@ export function registerPlayer(username: string, password: string, characterClas
     paladin: { str: 7, dex: 4, int: 5, con: 7, hp: 110, mp: 60 },
   };
 
+  const raceMods: Record<string, { str: number; dex: number; int: number; con: number; hp: number; mp: number }> = {
+    humano: { str: 0, dex: 0, int: 0, con: 0, hp: 0, mp: 0 },
+    elfo: { str: -1, dex: 2, int: 2, con: -1, hp: -5, mp: 10 },
+    elfo_oscuro: { str: 1, dex: 1, int: 2, con: -2, hp: -10, mp: 15 },
+    enano: { str: 2, dex: -2, int: -1, con: 3, hp: 15, mp: -10 },
+    gnomo: { str: -2, dex: 2, int: 3, con: -1, hp: -10, mp: 20 },
+  };
+
   const s = stats[characterClass] || stats.warrior;
+  const rm = raceMods[race] || raceMods.humano;
+  s.str += rm.str; s.dex += rm.dex; s.int += rm.int; s.con += rm.con; s.hp += rm.hp; s.mp += rm.mp;
 
   // Determine spawn location from procedural world
   let spawnMap = "rucci";
@@ -85,9 +167,9 @@ export function registerPlayer(username: string, password: string, characterClas
   } catch { /* world not ready yet, use defaults */ }
 
   db.prepare(`
-    INSERT INTO players (id, username, password_hash, character_class, x, y, map_id, strength, dexterity, intelligence, constitution, max_hp, max_mp, gold)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 100)
-  `).run(id, username, hash, characterClass, spawnX, spawnY, spawnMap, s.str, s.dex, s.int, s.con, s.hp, s.mp);
+    INSERT INTO players (id, username, password_hash, character_class, race, x, y, map_id, strength, dexterity, intelligence, constitution, max_hp, max_mp, gold)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 100)
+  `).run(id, username, hash, characterClass, race, spawnX, spawnY, spawnMap, s.str, s.dex, s.int, s.con, s.hp, s.mp);
 
   // Default inventory: a health potion and bandage
   db.prepare(`INSERT INTO inventory (player_id, item_id, quantity, slot) VALUES (?, 'health_potion', 3, 0)`).run(id);
@@ -105,7 +187,7 @@ export function authenticatePlayer(username: string, password: string): string |
 
 export function getPlayer(id: string): (PlayerState & { inventory: InventoryItem[] }) | null {
   const row = db.prepare(`
-    SELECT id, username, character_class, level, experience, stat_points, skill_unlocks, gold, x, y, map_id,
+    SELECT id, username, character_class, race, level, experience, stat_points, skill_unlocks, gold, x, y, map_id,
            strength, dexterity, intelligence, constitution, max_hp, max_mp
     FROM players WHERE id = ?
   `).get(id) as any;
@@ -121,10 +203,16 @@ export function getPlayer(id: string): (PlayerState & { inventory: InventoryItem
     (equipment as any)[eq.slot] = eq.item_id;
   }
 
+  // Reputation
+  const repRows = db.prepare("SELECT kingdom, value FROM reputation WHERE player_id = ?").all(id) as any[];
+  const reputation: Record<string, number> = {};
+  for (const r of repRows) reputation[r.kingdom] = r.value;
+
   return {
     id: row.id,
     username: row.username,
     characterClass: row.character_class,
+    race: row.race ?? "humano",
     level: row.level,
     experience: row.experience,
     statPoints: row.stat_points ?? 0,
@@ -151,6 +239,7 @@ export function getPlayer(id: string): (PlayerState & { inventory: InventoryItem
       slot: r.slot,
     })),
     equipment,
+    reputation,
   };
 }
 
@@ -182,4 +271,52 @@ export function saveEquipment(playerId: string, equipment: Record<string, string
   for (const [slot, itemId] of Object.entries(equipment)) {
     if (itemId) stmt.run(playerId, slot, itemId);
   }
+}
+
+// ---- Clans (persistent) ----
+
+export function dbCreateClan(id: string, name: string, leaderId: string): void {
+  db.prepare("INSERT INTO clans (id, name, leader_id, created_at) VALUES (?, ?, ?, ?)").run(id, name, leaderId, Date.now());
+  db.prepare("INSERT INTO clan_members (clan_id, player_id) VALUES (?, ?)").run(id, leaderId);
+}
+
+export function dbAddClanMember(clanId: string, playerId: string): void {
+  db.prepare("INSERT OR IGNORE INTO clan_members (clan_id, player_id) VALUES (?, ?)").run(clanId, playerId);
+}
+
+export function dbRemoveClanMember(clanId: string, playerId: string): void {
+  db.prepare("DELETE FROM clan_members WHERE clan_id = ? AND player_id = ?").run(clanId, playerId);
+}
+
+export function dbDeleteClan(clanId: string): void {
+  db.prepare("DELETE FROM clan_members WHERE clan_id = ?").run(clanId);
+  db.prepare("DELETE FROM clans WHERE id = ?").run(clanId);
+}
+
+export function dbUpdateClanLeader(clanId: string, leaderId: string): void {
+  db.prepare("UPDATE clans SET leader_id = ? WHERE id = ?").run(leaderId, clanId);
+}
+
+export function dbGetClans(): { id: string; name: string; leader_id: string; memberIds: string[] }[] {
+  const clans = db.prepare("SELECT id, name, leader_id FROM clans").all() as any[];
+  return clans.map(c => ({
+    id: c.id, name: c.name, leader_id: c.leader_id,
+    memberIds: (db.prepare("SELECT player_id FROM clan_members WHERE clan_id = ?").all(c.id) as any[]).map(r => r.player_id),
+  }));
+}
+
+// ---- Reputation ----
+
+export function addReputation(playerId: string, kingdom: string, amount: number): number {
+  const cur = (db.prepare("SELECT value FROM reputation WHERE player_id = ? AND kingdom = ?").get(playerId, kingdom) as any)?.value ?? 0;
+  const next = cur + amount;
+  db.prepare("INSERT OR REPLACE INTO reputation (player_id, kingdom, value) VALUES (?, ?, ?)").run(playerId, kingdom, next);
+  return next;
+}
+
+export function getReputation(playerId: string): Record<string, number> {
+  const rows = db.prepare("SELECT kingdom, value FROM reputation WHERE player_id = ?").all(playerId) as any[];
+  const out: Record<string, number> = {};
+  for (const r of rows) out[r.kingdom] = r.value;
+  return out;
 }

@@ -36,10 +36,10 @@ export default function App() {
     socket.emit("auth:login", { username, password });
   }, []);
 
-  const handleRegister = useCallback((username: string, password: string, characterClass: any) => {
+  const handleRegister = useCallback((username: string, password: string, characterClass: any, race?: any) => {
     const socket = getSocket();
     setError("");
-    socket.emit("auth:register", { username, password, characterClass });
+    socket.emit("auth:register", { username, password, characterClass, race });
   }, []);
 
   const handleLogout = useCallback(() => {

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import type { PlayerState, GroundItem, ChatMessage, ItemDef, DamageEvent, MonsterData, SkillEvent, WorldMetaData } from "@shared/types";
+import type { PlayerState, GroundItem, ChatMessage, ItemDef, DamageEvent, MonsterData, SkillEvent, WorldMetaData, TradeState, PartyState, ClanState } from "@shared/types";
 import { MapZone, Direction, SKILLS } from "@shared/types";
+import { RECIPES } from "@shared/crafting";
+import { QUESTS } from "@shared/quests";
 import { ITEMS } from "@shared/items";
 import { getSocket } from "../network/socket";
 import { GameEngine } from "../game/engine";
@@ -46,7 +48,14 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
   const [showInventory, setShowInventory] = useState(false);
   const [groundItems, setGroundItems] = useState<GroundItem[]>([]);
   const [damageNumbers, setDamageNumbers] = useState<{ id: string; x: number; y: number; amount: number; isCrit: boolean; isHeal: boolean }[]>([]);
-  const [npcPanel, setNpcPanel] = useState<{ npcId: string; name: string; dialogue: string; shopItems?: ItemDef[] } | null>(null);
+  const [npcPanel, setNpcPanel] = useState<{ npcId: string; name: string; dialogue: string; shopItems?: ItemDef[]; isBanker?: boolean } | null>(null);
+  const [bankState, setBankState] = useState<{ gold: number; items: { itemId: string; name: string; quantity: number }[] } | null>(null);
+  const [tradeState, setTradeState] = useState<TradeState | null>(null);
+  const [tradeNotice, setTradeNotice] = useState<string | null>(null);
+  const [partyState, setPartyState] = useState<PartyState | null>(null);
+  const [clanState, setClanState] = useState<ClanState | null>(null);
+  const [questState, setQuestState] = useState<{ questId: string; progress: number; required: number; completed: boolean; name: string } | null>(null);
+  const [showCrafting, setShowCrafting] = useState(false);
   const [deathScreen, setDeathScreen] = useState(false);
   const [chatFocused, setChatFocused] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
@@ -170,7 +179,7 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
       engineRef.current?.updateGroundItems(items);
       if (items.length > oldCount) Audio.playPickup();
     };
-    const onNpcInteract = (data: { npcId: string; dialogue: string; shopItems?: ItemDef[] }) => setNpcPanel({ npcId: data.npcId, name: data.npcId.replace(/_/g, " "), dialogue: data.dialogue, shopItems: data.shopItems });
+    const onNpcInteract = (data: { npcId: string; dialogue: string; shopItems?: ItemDef[]; isBanker?: boolean }) => setNpcPanel({ npcId: data.npcId, name: data.npcId.replace(/_/g, " "), dialogue: data.dialogue, shopItems: data.shopItems, isBanker: data.isBanker });
     const onWorldState = (state: { players: PlayerState[]; groundItems: GroundItem[]; mapId: string }) => {
       for (const p of state.players) { if (p.id !== player.id) engineRef.current?.addOtherPlayer(p); }
       setGroundItems(state.groundItems);
@@ -191,7 +200,48 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
     const onMapData = (map: import("@shared/types").GameMap) => {
       engineRef.current?.registerMap(map);
     };
+    const onBankState = (state: { gold: number; items: { itemId: string; name: string; quantity: number }[] }) => setBankState(state);
+    const onClanState = (state: ClanState | null) => setClanState(state);
+    const onClanRequest = (data: { fromId: string; fromName: string; clanName: string }) => {
+      if (window.confirm(`${data.fromName} te invita al clan ${data.clanName}. ¿Aceptar?`)) getSocket().emit("clan:accept");
+      else getSocket().emit("clan:decline");
+    };
+    const onClanClosed = (data: { reason: string }) => { setTradeNotice(data.reason); setTimeout(() => setTradeNotice(null), 4000); };
+    const onQuestState = (state: { questId: string; progress: number; required: number; completed: boolean; name: string } | null) => setQuestState(state);
+    const onTradeRequest = (data: { fromId: string; fromName: string }) => {
+      if (window.confirm(`${data.fromName} quiere comerciar con vos. ¿Aceptar?`)) {
+        getSocket().emit("trade:accept");
+      } else {
+        getSocket().emit("trade:decline");
+      }
+    };
+    const onTradeState = (state: TradeState) => setTradeState(state);
+    const onTradeClosed = (data: { reason: string }) => {
+      setTradeState(null);
+      setTradeNotice(data.reason);
+      setTimeout(() => setTradeNotice(null), 4000);
+    };
+    const onPartyRequest = (data: { fromId: string; fromName: string }) => {
+      if (window.confirm(`${data.fromName} te invita a su grupo. ¿Aceptar?`)) {
+        getSocket().emit("party:accept");
+      } else {
+        getSocket().emit("party:decline");
+      }
+    };
+    const onPartyState = (state: PartyState) => setPartyState(state.members.length > 0 ? state : null);
+    const onPartyClosed = (data: { reason: string }) => {
+      setTradeNotice(data.reason);
+      setTimeout(() => setTradeNotice(null), 4000);
+    };
+    const onActionResult = (data: { ok: boolean; message: string }) => {
+      setTradeNotice(data.message);
+      setTimeout(() => setTradeNotice(null), 4000);
+    };
 
+    socket.on("clan:state", onClanState);
+    socket.on("clan:request", onClanRequest);
+    socket.on("clan:closed", onClanClosed);
+    socket.on("quest:state", onQuestState);
     socket.on("player:update", onPlayerUpdate);
     socket.on("player:move", onPlayerMove);
     socket.on("player:leave", onPlayerLeave);
@@ -208,6 +258,14 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
     socket.on("world:chunk", onWorldChunk);
     socket.on("player:levelup", onLevelUp);
     socket.on("map:data", onMapData);
+    socket.on("bank:state", onBankState);
+    socket.on("trade:request", onTradeRequest);
+    socket.on("trade:state", onTradeState);
+    socket.on("trade:closed", onTradeClosed);
+    socket.on("party:request", onPartyRequest);
+    socket.on("party:state", onPartyState);
+    socket.on("party:closed", onPartyClosed);
+    socket.on("action:result", onActionResult);
 
     return () => {
       socket.off("player:update", onPlayerUpdate);
@@ -226,7 +284,19 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
       socket.off("world:chunk", onWorldChunk);
       socket.off("player:levelup", onLevelUp);
       socket.off("map:data", onMapData);
-    };
+      socket.off("bank:state", onBankState);
+      socket.off("trade:request", onTradeRequest);
+      socket.off("trade:state", onTradeState);
+    socket.off("trade:closed", onTradeClosed);
+    socket.off("party:request", onPartyRequest);
+    socket.off("party:state", onPartyState);
+    socket.off("party:closed", onPartyClosed);
+    socket.off("clan:state", onClanState);
+    socket.off("clan:request", onClanRequest);
+    socket.off("clan:closed", onClanClosed);
+    socket.off("quest:state", onQuestState);
+    socket.off("action:result", onActionResult);
+  };
   }, [player.id]);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
@@ -248,7 +318,72 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
     return () => window.removeEventListener("keydown", handleKey);
   }, [classSkills, chatFocused]);
 
-  const sendChat = useCallback(() => { if (!chatInput.trim()) return; Audio.playChat(); getSocket().emit("chat:send", chatInput.trim()); setChatInput(""); }, [chatInput]);
+  const sendChat = useCallback(() => {
+    const text = chatInput.trim();
+    if (!text) return;
+    if (text.startsWith("/comerciar ")) {
+      const target = text.slice("/comerciar ".length).trim();
+      if (target) getSocket().emit("trade:invite", target);
+      setChatInput("");
+      return;
+    }
+    if (text.startsWith("/party ")) {
+      const target = text.slice("/party ".length).trim();
+      if (target) getSocket().emit("party:invite", target);
+      setChatInput("");
+      return;
+    }
+    if (text === "/salir") {
+      getSocket().emit("party:leave");
+      setChatInput("");
+      return;
+    }
+    if (text.startsWith("/quest ")) {
+      const arg = text.slice(7).trim();
+      if (arg.startsWith("aceptar ")) getSocket().emit("quest:accept", arg.slice(8).trim());
+      else if (arg === "abandonar") getSocket().emit("quest:abandon");
+      else if (arg === "reclamar") getSocket().emit("quest:claim");
+      else setTradeNotice("Uso: /quest aceptar <id> | /quest abandonar | /quest reclamar");
+      setChatInput("");
+      return;
+    }
+    if (text.startsWith("/clan ")) {
+      const rest = text.slice(6).trim();
+      if (rest.startsWith("crear ")) getSocket().emit("clan:create", rest.slice(6).trim());
+      else if (rest.startsWith("invitar ")) getSocket().emit("clan:invite", rest.slice(8).trim());
+      else if (rest === "salir") getSocket().emit("clan:leave");
+      else setTradeNotice("Uso: /clan crear <nombre> | /clan invitar <usuario> | /clan salir");
+      setChatInput("");
+      return;
+    }
+    if (text.startsWith("/c ")) {
+      Audio.playChat();
+      getSocket().emit("chat:send", text);
+      setChatInput("");
+      return;
+    }
+    if (text === "/reputacion" || text === "/rep") {
+      const rep = (player as any).reputation as Record<string, number> | undefined;
+      if (!rep || Object.keys(rep).length === 0) setTradeNotice("Sin reputación aún. Cazá en territorios de reinos.");
+      else setTradeNotice(Object.entries(rep).map(([k, v]) => `${k}: ${v}`).join(" | "));
+      setTimeout(() => setTradeNotice(null), 4000);
+      setChatInput("");
+      return;
+    }
+    if (text === "/recolectar") {
+      getSocket().emit("gather");
+      setChatInput("");
+      return;
+    }
+    if (text === "/craftear") {
+      setShowCrafting((v) => !v);
+      setChatInput("");
+      return;
+    }
+    Audio.playChat();
+    getSocket().emit("chat:send", text);
+    setChatInput("");
+  }, [chatInput]);
   const handleRespawn = useCallback(() => { getSocket().emit("player:respawn"); setDeathScreen(false); Audio.playZoneChange(); }, []);
   const handleEquip = useCallback((slot: number) => { Audio.playEquip(); getSocket().emit("item:equip", slot); }, []);
   const handleUse = useCallback((slot: number) => { Audio.playUsePotion(); getSocket().emit("item:use", slot); }, []);
@@ -345,7 +480,7 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
         <div className="chat-messages">
           {chatMessages.map((msg) => (
             <div key={msg.id} className={`chat-msg ${msg.type}`}>
-              {msg.type === "system" ? <span>{msg.message}</span> : <><span className="chat-user">{msg.username}:</span> {msg.message}</>}
+               {msg.type === "system" ? <span>{msg.message}</span> : <><span className="chat-user">{msg.channel === "party" ? "[Grupo] " : msg.channel === "clan" ? "[Clan] " : ""}{msg.username}:</span> {msg.message}</>}
             </div>
           ))}
           <div ref={chatEndRef} />
@@ -474,6 +609,48 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
         <div className="npc-panel">
           <div className="npc-name">{npcPanel.name}</div>
           <div className="npc-dialogue">{npcPanel.dialogue}</div>
+
+          {npcPanel.isBanker && bankState && (
+            <div className="bank-section">
+              <div className="bank-gold">🏦 Bóveda: <strong>💰 {bankState.gold}</strong></div>
+              <div className="bank-actions">
+                <button onClick={() => {
+                  const amt = Number(window.prompt(`¿Cuánto oro depositás? (tenés ${player.gold})`, "0"));
+                  if (amt > 0) getSocket().emit("bank:gold", "deposit", Math.floor(amt));
+                }}>⬇️ Depositar</button>
+                <button onClick={() => {
+                  const amt = Number(window.prompt(`¿Cuánto oro retirás? (bóveda: ${bankState.gold})`, "0"));
+                  if (amt > 0) getSocket().emit("bank:gold", "withdraw", Math.floor(amt));
+                }}>⬆️ Retirar</button>
+              </div>
+              {player.gold >= 0 && (
+                <div className="bank-items">
+                  {bankState.items.length === 0 && <div className="bank-empty">Bóveda vacía</div>}
+                  {bankState.items.map((bi) => (
+                    <div key={bi.itemId} className="shop-item" onClick={() => {
+                      const qty = Number(window.prompt(`¿Cuántos ${bi.name} retirás? (hay ${bi.quantity})`, "1"));
+                      if (qty > 0) getSocket().emit("bank:item", "withdraw", bi.itemId, Math.floor(qty));
+                    }}>
+                      <span>{ITEM_ICONS[bi.itemId] ?? "?"} {bi.name} x{bi.quantity}</span>
+                      <span className="shop-item-price">tocar p/ retirar</span>
+                    </div>
+                  ))}
+                  <div className="bank-deposit-hint">— Tu inventario (tocá para depositar) —</div>
+                  {player.inventory.length === 0 && <div className="bank-empty">Inventario vacío</div>}
+                  {player.inventory.map((inv) => (
+                    <div key={inv.slot} className="shop-item" onClick={() => {
+                      const qty = Number(window.prompt(`¿Cuántos ${ITEMS[inv.itemId]?.name ?? inv.itemId} depositás? (tenés ${inv.quantity})`, `${inv.quantity}`));
+                      if (qty > 0) getSocket().emit("bank:item", "deposit", String(inv.slot), Math.floor(qty));
+                    }}>
+                      <span>{ITEM_ICONS[inv.itemId] ?? "?"} {ITEMS[inv.itemId]?.name ?? inv.itemId} x{inv.quantity}</span>
+                      <span className="shop-item-price">tocar p/ depositar</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {npcPanel.shopItems && npcPanel.shopItems.length > 0 && (
             <div className="shop-items">
               {npcPanel.shopItems.map((item) => (
@@ -487,6 +664,150 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
           <button className="npc-close" onClick={() => setNpcPanel(null)}>Cerrar</button>
         </div>
       )}
+
+      {/* Crafting Panel */}
+      {showCrafting && (
+        <div className="trade-panel">
+          <div className="npc-name">🔨 Mesa de Crafteo</div>
+          <div className="craft-list">
+            {RECIPES.map((recipe) => {
+              const canCraft = recipe.ingredients.every((ing) =>
+                player.inventory.filter((i) => i.itemId === ing.itemId).reduce((s, i) => s + i.quantity, 0) >= ing.quantity
+              );
+              return (
+                <div key={recipe.id} className={`craft-recipe ${canCraft ? "available" : ""}`}>
+                  <div className="craft-head">
+                    <span>{ITEM_ICONS[recipe.resultItemId] ?? "?"} {recipe.name}</span>
+                    {canCraft && (
+                      <button onClick={() => getSocket().emit("crafting:craft", recipe.id)}>Forjar</button>
+                    )}
+                  </div>
+                  <div className="craft-ing">
+                    {recipe.ingredients.map((ing) => {
+                      const have = player.inventory.filter((i) => i.itemId === ing.itemId).reduce((s, i) => s + i.quantity, 0);
+                      return (
+                        <span key={ing.itemId} className={have >= ing.quantity ? "have" : "missing"}>
+                          {ITEM_ICONS[ing.itemId] ?? "?"} {ITEMS[ing.itemId]?.name ?? ing.itemId}: {have}/{ing.quantity}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <button className="npc-close" onClick={() => setShowCrafting(false)}>Cerrar</button>
+        </div>
+      )}
+
+      {/* Trade Panel */}
+      {tradeState && (
+        <div className="trade-panel">
+          <div className="npc-name">🤝 Comercio con {tradeState.partnerName}</div>
+          <div className="trade-columns">
+            <div className="trade-col">
+              <div className="trade-col-title">Ofrecés</div>
+              <div className="trade-gold">💰 {tradeState.myOffer.gold}</div>
+              {tradeState.myOffer.items.map((i) => (
+                <div key={i.slot} className="shop-item">
+                  <span>{ITEM_ICONS[i.itemId] ?? "?"} {ITEMS[i.itemId]?.name ?? i.itemId} x{i.quantity}</span>
+                </div>
+              ))}
+              {tradeState.myOffer.items.length === 0 && <div className="bank-empty">Sin ítems</div>}
+              <div className={`trade-confirm ${tradeState.myOffer.confirmed ? "ok" : ""}`}>
+                {tradeState.myOffer.confirmed ? "✔ Confirmado" : "Sin confirmar"}
+              </div>
+            </div>
+            <div className="trade-col">
+              <div className="trade-col-title">{tradeState.partnerName} ofrece</div>
+              <div className="trade-gold">💰 {tradeState.theirOffer.gold}</div>
+              {tradeState.theirOffer.items.map((i, idx) => (
+                <div key={idx} className="shop-item">
+                  <span>{ITEM_ICONS[i.itemId] ?? "?"} {ITEMS[i.itemId]?.name ?? i.itemId} x{i.quantity}</span>
+                </div>
+              ))}
+              {tradeState.theirOffer.items.length === 0 && <div className="bank-empty">Sin ítems</div>}
+              <div className={`trade-confirm ${tradeState.theirOffer.confirmed ? "ok" : ""}`}>
+                {tradeState.theirOffer.confirmed ? "✔ Confirmado" : "Sin confirmar"}
+              </div>
+            </div>
+          </div>
+          <div className="trade-actions">
+            <button onClick={() => {
+              const amt = Number(window.prompt(`¿Cuánto oro ofrecés? (tenés ${player.gold})`, "0"));
+              if (amt >= 0) getSocket().emit("trade:addGold", Math.floor(amt));
+            }}>💰 Ofrecer oro</button>
+            <button onClick={() => {
+              const slot = Number(window.prompt(`Slot del ítem a ofrecer (0-19):`, "0"));
+              const qty = Number(window.prompt("Cantidad:", "1"));
+              if (!Number.isNaN(slot)) getSocket().emit("trade:addItem", slot, Math.max(1, qty));
+            }}>🎒 Ofrecer ítem</button>
+          </div>
+          <div className="trade-actions">
+            <button className="trade-ok" onClick={() => getSocket().emit("trade:confirm")}>✔ Confirmar</button>
+            <button className="trade-no" onClick={() => getSocket().emit("trade:cancel")}>✖ Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {/* Trade notice */}
+      {tradeNotice && (
+        <div className="trade-notice">{tradeNotice}</div>
+      )}
+
+      {/* Party Panel */}
+      {partyState && (
+        <div className="party-panel">
+          <div className="party-title">⚔️ Grupo</div>
+          {partyState.members.map((m) => (
+            <div key={m.id} className={`party-member ${m.isLeader ? "leader" : ""}`}>
+              <span>{m.isLeader ? "👑" : "•"} {m.username}</span>
+              <span>Nv.{m.level}</span>
+            </div>
+          ))}
+          <button className="party-leave" onClick={() => getSocket().emit("party:leave")}>Salir</button>
+        </div>
+      )}
+
+      {/* Clan Panel */}
+      {clanState && (
+        <div className="party-panel" style={{ top: partyState ? "calc(230px + var(--safe-top))" : "calc(150px + var(--safe-top))" }}>
+          <div className="party-title">🏰 {clanState.name}</div>
+          {clanState.members.map((m) => (
+            <div key={m.id} className={`party-member ${m.isLeader ? "leader" : ""}`}>
+              <span>{m.isLeader ? "👑" : "•"} {m.username}</span>
+              <span>Nv.{m.level}</span>
+            </div>
+          ))}
+          <button className="party-leave" onClick={() => getSocket().emit("clan:leave")}>Salir del clan</button>
+        </div>
+      )}
+
+      {/* Quest Panel */}
+      <div className="quest-hud">
+        {questState ? (
+          <div className="quest-card">
+            <div className="quest-title">📜 {questState.name}</div>
+            <div className="quest-progress">{questState.progress}/{questState.required} {questState.completed ? "✔" : ""}</div>
+            <div className="quest-actions">
+              {questState.completed ? (
+                <button onClick={() => getSocket().emit("quest:claim")}>Reclamar</button>
+              ) : (
+                <button onClick={() => getSocket().emit("quest:abandon")}>Abandonar</button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="quest-list">
+            {QUESTS.map((q) => (
+              <div key={q.id} className="quest-option">
+                <span>{q.name} — {q.description}</span>
+                <button onClick={() => getSocket().emit("quest:accept", q.id)}>Aceptar</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Damage Numbers */}
       {damageNumbers.map((d) => (

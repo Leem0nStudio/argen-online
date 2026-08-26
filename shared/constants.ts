@@ -25,6 +25,9 @@ export const MONSTER_AUTO_ATTACK_MS = 1200;
 export const GOLD_LOSS_ON_DEATH_PCT = 0.1;
 export const RESPAWN_GOLD_COST = 50;
 
+// ---- PvP ----
+export const PVP_CRIMINAL_DURATION_MS = 300_000; // 5 min de condición criminal
+
 // ---- Buffs ----
 export const POISON_TICK_INTERVAL = 4; // ticks
 
@@ -35,6 +38,15 @@ export const CHAT_DISPLAY_LIMIT = 50;
 
 // ---- Inventory ----
 export const MAX_INVENTORY_SLOTS = 20;
+
+// ---- Race Modifiers (AO-inspired) ----
+export const RACE_MODS: Record<string, { str: number; dex: number; int: number; con: number; hp: number; mp: number; desc: string }> = {
+  humano:      { str: 0, dex: 0, int: 0, con: 0, hp: 0, mp: 0, desc: "Equilibrado" },
+  elfo:        { str: -1, dex: 2, int: 2, con: -1, hp: -5, mp: 10, desc: "Ágil y mágico" },
+  elfo_oscuro: { str: 1, dex: 1, int: 2, con: -2, hp: -10, mp: 15, desc: "Mago oscuro" },
+  enano:       { str: 2, dex: -2, int: -1, con: 3, hp: 15, mp: -10, desc: "Fuerte y resistente" },
+  gnomo:       { str: -2, dex: 2, int: 3, con: -1, hp: -10, mp: 20, desc: "Pequeño sabio" },
+};
 
 // ---- Class Base Stats ----
 export const CLASS_BASE_STATS: Record<string, { str: number; dex: number; int: number; con: number; hp: number; mp: number }> = {

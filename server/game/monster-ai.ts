@@ -13,6 +13,7 @@ import {
 import { Players, Monsters, type Monster } from "./state.js";
 import { canMoveTo } from "./movement.js";
 import { monsterAttackPlayer } from "./combat.js";
+import { getWorldMap } from "./world.js";
 
 function findNearestPlayer(monster: Monster) {
   let nearest = null;
@@ -38,15 +39,31 @@ export function spawnMonstersForMap(mapId: string) {
     return;
   }
 
+  // Procedural dungeons / POIs
+  if (mapId.startsWith("poi_")) {
+    try {
+      const wm = getWorldMap();
+      const dMap = wm.getMap(mapId);
+      if (!dMap) return;
+      const count = dMap.zone === MapZone.Dungeon ? MONSTERS_PER_DUNGEON : MONSTERS_PER_WILDERNESS;
+      spawnForDimensions(mapId, dMap.width, dMap.height, count);
+      return;
+    } catch { return; }
+  }
+
   // Legacy handcrafted maps
   const map = MAPS[mapId];
   if (!map || map.zone === MapZone.City) return;
 
   const count = map.zone === MapZone.Dungeon ? MONSTERS_PER_DUNGEON : MONSTERS_PER_WILDERNESS;
+  spawnForDimensions(mapId, map.width, map.height, count);
+}
+
+function spawnForDimensions(mapId: string, width: number, height: number, count: number) {
   for (let i = 0; i < count; i++) {
     const def = MONSTER_DEFS[Math.floor(Math.random() * MONSTER_DEFS.length)];
-    const x = MONSTER_SPAWN_MARGIN + Math.floor(Math.random() * (map.width - MONSTER_SPAWN_MARGIN * 2));
-    const y = MONSTER_SPAWN_MARGIN + Math.floor(Math.random() * (map.height - MONSTER_SPAWN_MARGIN * 2));
+    const x = MONSTER_SPAWN_MARGIN + Math.floor(Math.random() * (width - MONSTER_SPAWN_MARGIN * 2));
+    const y = MONSTER_SPAWN_MARGIN + Math.floor(Math.random() * (height - MONSTER_SPAWN_MARGIN * 2));
 
     if (canMoveTo(mapId, x, y)) {
       const id = `monster_${uuidv4().slice(0, 8)}`;
@@ -90,7 +107,17 @@ function spawnWorldMonsters() {
       const sy = Math.round(player.y + Math.sin(angle) * dist);
 
       if (canMoveTo("world", sx, sy)) {
-        const def = MONSTER_DEFS[Math.floor(Math.random() * MONSTER_DEFS.length)];
+        let def = MONSTER_DEFS[Math.floor(Math.random() * MONSTER_DEFS.length)];
+        // Wilderness danger scales with distance to nearest settlement
+        try {
+          const wm = getWorldMap();
+          const nearest = wm.getNearbySettlements(sx, sy, 500).reduce((min, s) => Math.min(min, Math.hypot(s.wx - sx, s.wy - sy)), Infinity);
+          if (nearest > 150) {
+            // Pick stronger monster bias
+            def = MONSTER_DEFS[MONSTER_DEFS.length - 1 - Math.floor(Math.random() * 2)]; // Ogro/Esqueleto
+          }
+        } catch {}
+
         const id = `monster_${uuidv4().slice(0, 8)}`;
         Monsters.set({
           id, name: def.name, hp: def.hp, maxHp: def.hp,

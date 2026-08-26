@@ -114,10 +114,19 @@ export interface Equipment {
   ring: string | null;
 }
 
+export enum Race {
+  Humano = "humano",
+  Elfo = "elfo",
+  ElfoOscuro = "elfo_oscuro",
+  Enano = "enano",
+  Gnomo = "gnomo",
+}
+
 export interface PlayerState {
   id: string;
   username: string;
   characterClass: string;
+  race?: Race;
   level: number;
   experience: number;
   statPoints: number;
@@ -133,6 +142,9 @@ export interface PlayerState {
   equipment: Equipment;
   buffs?: ActiveBuff[];
   cooldowns?: CooldownState;
+  /** Timestamp until which the player is marked criminal (PvP). Runtime only. */
+  criminalUntil?: number;
+  reputation?: Record<string, number>;
 }
 
 // ---- Items ----
@@ -162,9 +174,23 @@ export interface NPCData {
   name: string;
   x: number;
   y: number;
-  type: "merchant" | "quest" | "dialog";
+  type: "merchant" | "quest" | "dialog" | "banker";
   dialogue: string[];
   shopItems?: string[];
+}
+
+// ---- Trade (player-to-player) ----
+
+export interface TradeOffer {
+  items: { slot: number; itemId: string; quantity: number }[];
+  gold: number;
+  confirmed: boolean;
+}
+
+export interface TradeState {
+  partnerName: string;
+  myOffer: TradeOffer;
+  theirOffer: TradeOffer;
 }
 
 // ---- Maps ----
@@ -233,6 +259,36 @@ export interface ChatMessage {
   message: string;
   timestamp: number;
   type: "local" | "system" | "global";
+  channel?: "global" | "party" | "clan";
+}
+
+// ---- Party ----
+
+export interface PartyMemberInfo {
+  id: string;
+  username: string;
+  level: number;
+  isLeader: boolean;
+}
+
+export interface PartyState {
+  members: PartyMemberInfo[];
+}
+
+// ---- Clan ----
+
+export interface ClanMemberInfo {
+  id: string;
+  username: string;
+  level: number;
+  isLeader: boolean;
+  online: boolean;
+}
+
+export interface ClanState {
+  id: string;
+  name: string;
+  members: ClanMemberInfo[];
 }
 
 // ---- Monster AI ----
@@ -260,7 +316,7 @@ export function xpForLevel(level: number): number {
 // ---- Socket Event Maps ----
 
 export interface ClientEvents {
-  "auth:register": (data: { username: string; password: string; characterClass: string }) => void;
+  "auth:register": (data: { username: string; password: string; characterClass: string; race?: Race }) => void;
   "auth:login": (data: { username: string; password: string }) => void;
   "player:move": (data: { x: number; y: number; direction: Direction }) => void;
   "player:stop": (data: { x: number; y: number; direction: Direction }) => void;
@@ -275,6 +331,29 @@ export interface ClientEvents {
   "npc:interact": (npcId: string) => void;
   "npc:buy": (itemId: string, quantity: number) => void;
   "npc:sell": (inventorySlot: number, quantity: number) => void;
+  "bank:gold": (action: "deposit" | "withdraw", amount: number) => void;
+  "bank:item": (action: "deposit" | "withdraw", itemId: string, quantity: number) => void;
+  "trade:invite": (targetUsername: string) => void;
+  "trade:accept": () => void;
+  "trade:decline": () => void;
+  "trade:addItem": (slot: number, quantity: number) => void;
+  "trade:addGold": (amount: number) => void;
+  "trade:confirm": () => void;
+  "trade:cancel": () => void;
+  "party:invite": (targetUsername: string) => void;
+  "party:accept": () => void;
+  "party:decline": () => void;
+  "party:leave": () => void;
+  "quest:accept": (questId: string) => void;
+  "quest:abandon": () => void;
+  "quest:claim": () => void;
+  "clan:create": (name: string) => void;
+  "clan:invite": (targetUsername: string) => void;
+  "clan:accept": () => void;
+  "clan:decline": () => void;
+  "clan:leave": () => void;
+  "gather": () => void;
+  "crafting:craft": (recipeId: string) => void;
   "world:request": (data: { wx: number; wy: number; radius: number }) => void;
   "stat:allocate": (data: { stat: "strength" | "dexterity" | "intelligence" | "constitution" }) => void;
 }
@@ -291,13 +370,25 @@ export interface ServerEvents {
   "combat:death": (data: { killerId: string; victimId: string }) => void;
   "skill:effect": (event: SkillEvent) => void;
   "groundItems:update": (items: GroundItem[]) => void;
-  "npc:interact": (data: { npcId: string; dialogue: string; shopItems?: ItemDef[] }) => void;
+  "npc:interact": (data: { npcId: string; dialogue: string; shopItems?: ItemDef[]; isBanker?: boolean }) => void;
   "world:state": (state: { players: PlayerState[]; groundItems: GroundItem[]; mapId: string }) => void;
   "monsters:update": (monsters: MonsterData[]) => void;
   "world:data": (data: WorldMetaData) => void;
   "world:chunk": (data: { rx: number; ry: number; tiles: number[][] }) => void;
   "player:levelup": (data: { level: number; statPoints: number; newUnlocks: string[] }) => void;
   "map:data": (map: GameMap) => void;
+  "trade:request": (data: { fromId: string; fromName: string }) => void;
+  "trade:state": (state: TradeState) => void;
+  "trade:closed": (data: { reason: string }) => void;
+  "bank:state": (state: { gold: number; items: { itemId: string; name: string; quantity: number }[] }) => void;
+  "party:request": (data: { fromId: string; fromName: string }) => void;
+  "party:state": (state: PartyState) => void;
+  "party:closed": (data: { reason: string }) => void;
+  "quest:state": (state: { questId: string; progress: number; required: number; completed: boolean; name: string } | null) => void;
+  "clan:request": (data: { fromId: string; fromName: string; clanName: string }) => void;
+  "clan:state": (state: ClanState | null) => void;
+  "clan:closed": (data: { reason: string }) => void;
+  "action:result": (data: { ok: boolean; message: string }) => void;
 }
 
 // ---- World Generation Types ----

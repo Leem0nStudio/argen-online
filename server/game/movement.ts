@@ -24,8 +24,8 @@ export function canMoveTo(mapId: string, x: number, y: number): boolean {
     return wm.isWalkable(x, y);
   }
 
-  // ---- Procedural settlement maps ----
-  if (mapId.startsWith("settlement_")) {
+  // ---- Procedural settlement / dungeon maps ----
+  if (mapId.startsWith("settlement_") || mapId.startsWith("poi_")) {
     const map = getWorldMap().getMap(mapId);
     if (!map) return false;
     if (x < 0 || x >= map.width || y < 0 || y >= map.height) return false;
@@ -49,7 +49,7 @@ export function movePlayer(id: string, x: number, y: number, direction: Directio
   if (!player || Players.isDead(id)) return null;
   if (!canMoveTo(player.mapId, x, y)) return null;
 
-  // ---- Procedural world: check for settlement entrance ----
+  // ---- Procedural world: check for settlement / POI entrance ----
   if (player.mapId === "world") {
     const wm = getWorldMap();
     const settlement = wm.getSettlementAt(x, y);
@@ -63,7 +63,24 @@ export function movePlayer(id: string, x: number, y: number, direction: Directio
       player.y = spawnY;
       player.direction = direction;
 
-      // Ensure monsters spawned on settlement map
+      if (!SpawnState.hasSpawned(targetMapId)) {
+        spawnMonstersForMap(targetMapId);
+        SpawnState.markSpawned(targetMapId);
+      }
+
+      return { teleported: true, mapId: targetMapId, x: spawnX, y: spawnY };
+    }
+    const poi = wm.getPOIAt(x, y);
+    if (poi) {
+      const targetMapId = wm.getPOIMapId(poi);
+      const map = wm.getMap(targetMapId);
+      const spawnX = map?.spawns[0]?.x ?? Math.floor((map?.width ?? 24) / 2);
+      const spawnY = map?.spawns[0]?.y ?? Math.floor((map?.height ?? 24) / 2);
+      player.mapId = targetMapId;
+      player.x = spawnX;
+      player.y = spawnY;
+      player.direction = direction;
+
       if (!SpawnState.hasSpawned(targetMapId)) {
         spawnMonstersForMap(targetMapId);
         SpawnState.markSpawned(targetMapId);
@@ -73,8 +90,8 @@ export function movePlayer(id: string, x: number, y: number, direction: Directio
     }
   }
 
-  // ---- Settlement map: check for exit to world ----
-  if (player.mapId.startsWith("settlement_")) {
+  // ---- Settlement / dungeon map: check for exit to world ----
+  if (player.mapId.startsWith("settlement_") || player.mapId.startsWith("poi_")) {
     const wm = getWorldMap();
     const map = MAPS[player.mapId] ?? wm.getMap(player.mapId);
     if (map) {

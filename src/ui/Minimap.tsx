@@ -69,6 +69,16 @@ export default function Minimap({ world, playerPos }: Props) {
       ctx.fill();
     }
 
+    // POIs (dungeons etc)
+    for (const poi of world.pois) {
+      const x = toMapX(poi.wx);
+      const y = toMapY(poi.wy);
+      ctx.fillStyle = poi.type === "dungeon" ? "#ff4444" : poi.type === "cave" ? "#8844ff" : "#ffaa00";
+      ctx.beginPath();
+      ctx.arc(x, y, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     // Settlements
     for (const s of world.settlements) {
       const x = toMapX(s.wx);

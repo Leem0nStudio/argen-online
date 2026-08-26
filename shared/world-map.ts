@@ -30,12 +30,14 @@ const SETTLEMENT_NPC_TEMPLATES = {
     { type: "merchant" as const, nameSuffix: "Herrero", dialogue: ["¡Bienvenido a mi forja!", "Tengo las mejores armas del reino."], shopItems: ["rusty_sword", "iron_sword", "oak_bow", "mage_staff"] },
     { type: "merchant" as const, nameSuffix: "Alquimista", dialogue: ["Mis pociones son las mejores.", "¿Te algo te duele?"], shopItems: ["health_potion", "mana_potion", "bandage"] },
     { type: "merchant" as const, nameSuffix: "Armero", dialogue: ["Protección de calidad aquí.", "No salgas sin armadura."], shopItems: ["leather_armor", "chainmail", "plate_armor"] },
+    { type: "banker" as const, nameSuffix: "Banquero", dialogue: ["El banco real guarda tu oro.", "Deposita aquí, es más seguro que cargarlo."] },
     { type: "quest" as const, nameSuffix: "Sabio", dialogue: ["Joven aventurero...", "Las criaturas se han vuelto agresivas.", "Ten cuidado afuera."] },
     { type: "dialog" as const, nameSuffix: "Guardia", dialogue: ["¡No pases sin cuidado!", "Los campos fuera son peligrosos."] },
   ],
   city: [
     { type: "merchant" as const, nameSuffix: "Mercader", dialogue: ["Vendo de todo aquí.", "¿Qué necesitas?"], shopItems: ["rusty_sword", "health_potion", "leather_armor", "iron_ore"] },
     { type: "merchant" as const, nameSuffix: "Curandero", dialogue: ["Cuido a los heridos.", "¿Necesitas una poción?"], shopItems: ["health_potion", "mana_potion", "bandage"] },
+    { type: "banker" as const, nameSuffix: "Recaudador", dialogue: ["Sucursal del banco real.", "Guarda tus ganancias conmigo."] },
     { type: "dialog" as const, nameSuffix: "Guardia", dialogue: ["La ciudad es segura.", "Pero afuera cuidado."] },
   ],
   town: [
@@ -53,12 +55,16 @@ export class WorldMapManager {
   private chunkCache = new Map<string, number[][]>();
   private settlementMaps = new Map<string, GameMap>();
   private settlementByPos = new Map<string, Settlement>();
+  private dungeonMaps = new Map<string, GameMap>();
+  private poiByPos = new Map<string, POI>();
 
   constructor(seed: number, worldWidth = 32, worldHeight = 32) {
     this.generator = new WorldGenerator(seed, worldWidth, worldHeight);
     this.worldData = this.generator.generateWorld();
     this.buildSettlementMaps();
     this.buildSettlementLookup();
+    this.buildDungeonMaps();
+    this.buildPoiLookup();
   }
 
   // ---- Accessors ----
@@ -271,6 +277,104 @@ export class WorldMapManager {
     }
   }
 
+  private buildPoiLookup() {
+    for (const poi of this.worldData.pois) {
+      this.poiByPos.set(`${poi.wx},${poi.wy}`, poi);
+    }
+  }
+
+  private buildDungeonMaps() {
+    for (const poi of this.worldData.pois) {
+      const size = poi.type === "dungeon" ? 28 : poi.type === "ruins" ? 24 : poi.type === "cave" ? 20 : poi.type === "mine" ? 22 : 18;
+      const tiles = this.generateDungeonTiles(poi, size);
+      const decorations = Array.from({ length: size }, () => Array(size).fill(-1));
+      const zone = poi.type === "dungeon" || poi.type === "cave" ? MapZone.Dungeon : MapZone.Wilderness;
+
+      this.dungeonMaps.set(poi.id, {
+        id: poi.id,
+        name: poi.name,
+        width: size,
+        height: size,
+        tileSize: 32,
+        zone,
+        tiles,
+        decorations,
+        spawns: [{ x: Math.floor(size / 2), y: size - 2 }],
+        connections: [
+          {
+            targetMapId: "world",
+            targetX: poi.wx,
+            targetY: poi.wy + 1,
+            triggerX: Math.floor(size / 2) - 1,
+            triggerY: 0,
+            triggerW: 3,
+            triggerH: 1,
+          },
+        ],
+        npcs: [],
+      });
+    }
+  }
+
+  private generateDungeonTiles(poi: POI, size: number): number[][] {
+    const grid: number[][] = Array.from({ length: size }, () => Array(size).fill(WT.cave));
+    const rng = new SeededRandom(poi.wx * 71 + poi.wy * 53 + 999);
+
+    // Walls border with north gate
+    for (let x = 0; x < size; x++) {
+      grid[0][x] = WT.wall;
+      grid[size - 1][x] = WT.wall;
+    }
+    for (let y = 0; y < size; y++) {
+      grid[y][0] = WT.wall;
+      grid[y][size - 1] = WT.wall;
+    }
+    const gateMid = Math.floor(size / 2);
+    grid[0][gateMid - 1] = WT.path;
+    grid[0][gateMid] = WT.path;
+    grid[0][gateMid + 1] = WT.path;
+
+    // Carve random rooms/corridors (simple cellular)
+    const roomCount = poi.type === "dungeon" ? 6 : poi.type === "cave" ? 4 : 3;
+    for (let r = 0; r < roomCount; r++) {
+      const rw = 5 + Math.floor(rng.next() * 4);
+      const rh = 4 + Math.floor(rng.next() * 4);
+      const rx = 2 + Math.floor(rng.next() * (size - rw - 4));
+      const ry = 2 + Math.floor(rng.next() * (size - rh - 4));
+      for (let dy = 0; dy < rh; dy++) {
+        for (let dx = 0; dx < rw; dx++) {
+          const tx = rx + dx, ty = ry + dy;
+          const isWall = dy === 0 || dy === rh - 1 || dx === 0 || dx === rw - 1;
+          grid[ty][tx] = isWall ? WT.wall : (poi.type === "cave" ? WT.cave : poi.type === "ruins" ? WT.ruins : WT.townFloor);
+        }
+      }
+      // door
+      const doorX = rx + Math.floor(rw / 2);
+      const doorY = ry + rh - 1;
+      if (doorY < size - 1) grid[doorY][doorX] = WT.path;
+    }
+
+    // Central path cross
+    const mid = Math.floor(size / 2);
+    for (let x = 1; x < size - 1; x++) {
+      if (grid[mid][x] === WT.cave) grid[mid][x] = WT.path;
+    }
+    for (let y = 1; y < size - 1; y++) {
+      if (grid[y][mid] === WT.cave) grid[y][mid] = WT.path;
+    }
+
+    // Scatter lava/deposits for mines
+    if (poi.type === "mine") {
+      for (let i = 0; i < 6; i++) {
+        const x = 2 + Math.floor(rng.next() * (size - 4));
+        const y = 2 + Math.floor(rng.next() * (size - 4));
+        if (grid[y][x] === WT.cave) grid[y][x] = rng.next() > 0.5 ? WT.ironDeposit : WT.goldDeposit;
+      }
+    }
+
+    return grid;
+  }
+
   /** Get chunk coordinates from world position */
   chunkCoordsAt(wx: number, wy: number): { rx: number; ry: number } {
     return { rx: Math.floor(wx / CHUNK_SIZE), ry: Math.floor(wy / CHUNK_SIZE) };
@@ -289,11 +393,24 @@ export class WorldMapManager {
     if (mapId.startsWith("settlement_")) {
       return this.settlementMaps.get(mapId);
     }
+    // Dungeon / POI maps
+    if (mapId.startsWith("poi_")) {
+      return this.dungeonMaps.get(mapId);
+    }
     // World map (virtual — generated on demand)
     if (mapId === "world") {
       return this.getWorldMap();
     }
     return undefined;
+  }
+
+  /** POI helpers */
+  getPOIAt(wx: number, wy: number): POI | undefined {
+    return this.poiByPos.get(`${wx},${wy}`);
+  }
+
+  getPOIMapId(poi: POI): string {
+    return poi.id;
   }
 
   /** Check if a tile at world coordinates is walkable */

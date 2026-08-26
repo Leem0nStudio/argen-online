@@ -11,6 +11,7 @@ import { initDB } from "./db/database.js";
 import { initWorld } from "./game/world.js";
 import { setupHandlers } from "./network/handlers.js";
 import { startGameLoop } from "./network/game-loop.js";
+import { loadClansFromDB } from "./game/clan.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -18,6 +19,11 @@ console.log("⚔️  Argentum Online - Game Server Starting...");
 
 initDB();
 console.log("✅ Database initialized");
+
+try {
+  loadClansFromDB();
+  console.log("✅ Clans loaded");
+} catch { /* clans table may not exist yet on first run */ }
 
 // Initialize procedural world
 const worldMap = initWorld();
