@@ -26,7 +26,7 @@
 | Party | IMPLEMENTED | /party, XP compartida con bonus 1.25x, chat /p, roster visible | VERIFIED | CHG-003; sin loot distribution ni HP de miembros | |
 | Reputation | IMPLEMENTED | +1-2 por kill en territorio del reino, /reputacion muestra standing, se guarda en DB | VERIFIED | CHG-006 |
 | Wilderness | IMPLEMENTED | peligro escala con distancia + relieve (bias Ogro/Esqueleto, colinas con vetas) | VERIFIED | CHG-007+012+013 |
-| World | IMPLEMENTED | continente tectónico multi-isla 32×32 seed 42, 15 biomas + relieve + ríos continuos 1% + vetas | VERIFIED | CHG-013/014 + CHG-012 |
+| World | IMPLEMENTED | continente tectónico multi-isla 32×32 seed 42, 15 biomas + relieve + ríos 1.09% + vetas, asentamientos en valles + roads A* 1463 | VERIFIED | CHG-013/014/015 |
 | Cities | IMPLEMENTED | asentamientos con interior, portón norte, servicios NPC | VERIFIED | |
 | Dungeons | IMPLEMENTED | 30 POIs con interiores (dungeon/cave/ruins/mine/shrine), entrada desde mundo, monstruos, salida a mundo | VERIFIED | CHG-005; minimapa marca POIs |
 | Economy | IMPLEMENTED | oro con banco fee 2%, tiendas stock 10 + descuento rep, drops | VERIFIED | CHG-011 sumideros |

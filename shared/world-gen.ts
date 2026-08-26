@@ -520,25 +520,29 @@ export class WorldGenerator {
     const rain = this.getRainfall(wx, wy);
     const biome = this.classifyBiome(wx, wy);
 
-    // Penalize ocean/mountains
     if (elev < ELEVATION.BEACH) return -1;
     if (elev > ELEVATION.MOUNTAIN) return -1;
 
     let score = 0;
-
-    // Water access (not in ocean, near moderate elevation)
     if (elev > ELEVATION.BEACH && elev < ELEVATION.HILLS) score += 0.3;
-
-    // Temperature: temperate is best
     const tempScore = 1.0 - Math.abs(temp - 0.3) * 1.5;
     score += tempScore * 0.3;
-
-    // Rainfall: moderate is best
     if (rain > 0.3 && rain < 0.8) score += 0.2;
-
-    // Biome preference
-    const goodBiomes = ["forest", "grassland", "plains", "savanna"];
+    const goodBiomes = ["forest", "grassland", "plains", "savanna", "boreal_forest", "wetland"];
     if (goodBiomes.includes(biome)) score += 0.2;
+
+    // River proximity bonus (valley)
+    let nearRiver = false;
+    for (let dy = -6; dy <= 6 && !nearRiver; dy++) for (let dx = -6; dx <= 6 && !nearRiver; dx++) {
+      if (this.isRiverTile(wx + dx, wy + dy)) nearRiver = true;
+    }
+    if (nearRiver) score += 0.22;
+
+    // Slope penalty (flat valley preferred)
+    const slope = Math.abs(this.getElevation(wx + 1, wy) - this.getElevation(wx - 1, wy)) +
+                  Math.abs(this.getElevation(wx, wy + 1) - this.getElevation(wx, wy - 1));
+    if (slope > 0.09) score -= 0.28;
+    else if (slope < 0.04) score += 0.08;
 
     return score;
   }
@@ -684,41 +688,105 @@ export class WorldGenerator {
     startX: number, startY: number,
     endX: number, endY: number,
   ): { wx: number; wy: number }[] {
-    // Direct-line heuristic pathfinding with step-1 granularity
-    // We sample points along the direct line and then refine nearby
-    const path: { wx: number; wy: number }[] = [];
+    // A* on cost grid with river awareness, bounded search — continuous and respects terrain
+    const key = (x: number, y: number) => `${x},${y}`;
+    const heuristic = (x: number, y: number) => Math.abs(x - endX) + Math.abs(y - endY);
+    const moveCostWithRiver = (x: number, y: number) => {
+      const c = this.getMoveCost(x, y);
+      if (c === Infinity) return Infinity;
+      // River crossing is expensive without bridge (encourages valley parallel)
+      if (this.isRiverTile(x, y)) return c + 6;
+      return c;
+    };
+
+    const open: { x: number; y: number; g: number; h: number; f: number; parent: string | null }[] = [];
+    const closed = new Set<string>();
+    const cameFrom = new Map<string, string | null>();
+    const gScore = new Map<string, number>();
+    const startKey = key(startX, startY);
+    gScore.set(startKey, 0);
+    open.push({ x: startX, y: startY, g: 0, h: heuristic(startX, startY), f: heuristic(startX, startY), parent: null });
+    cameFrom.set(startKey, null);
+
+    const padding = 40;
+    const minX = Math.min(startX, endX) - padding;
+    const maxX = Math.max(startX, endX) + padding;
+    const minY = Math.min(startY, endY) - padding;
+    const maxY = Math.max(startY, endY) + padding;
+
+    let found: string | null = null;
+    let iterations = 0;
+    const maxIter = 8000;
+
+    while (open.length > 0 && iterations++ < maxIter) {
+      open.sort((a, b) => a.f - b.f);
+      const cur = open.shift()!;
+      const curKey = key(cur.x, cur.y);
+      if (cur.x === endX && cur.y === endY) { found = curKey; break; }
+      if (closed.has(curKey)) continue;
+      closed.add(curKey);
+
+      for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]] as const) {
+        const nx = cur.x + dx;
+        const ny = cur.y + dy;
+        if (nx < minX || nx > maxX || ny < minY || ny > maxY) continue;
+        const nKey = key(nx, ny);
+        if (closed.has(nKey)) continue;
+        const cost = moveCostWithRiver(nx, ny);
+        if (cost === Infinity) continue;
+        const step = (dx !== 0 && dy !== 0) ? cost * 1.4 : cost;
+        const ng = cur.g + step;
+        const existing = gScore.get(nKey);
+        if (existing !== undefined && ng >= existing) continue;
+        gScore.set(nKey, ng);
+        const h = heuristic(nx, ny);
+        const f = ng + h;
+        cameFrom.set(nKey, curKey);
+        const existingOpen = open.find(o => o.x === nx && o.y === ny);
+        if (existingOpen) { existingOpen.g = ng; existingOpen.h = h; existingOpen.f = f; }
+        else open.push({ x: nx, y: ny, g: ng, h, f, parent: curKey });
+      }
+    }
+
+    if (found) {
+      const path: { wx: number; wy: number }[] = [];
+      let curKey: string | null = found;
+      while (curKey) {
+        const [xs, ys] = curKey.split(",").map(Number);
+        path.push({ wx: xs, wy: ys });
+        curKey = cameFrom.get(curKey) ?? null;
+      }
+      path.reverse();
+      // Simplify: keep every 2nd point to reduce road segments but keep shape
+      const simplified: { wx: number; wy: number }[] = [];
+      for (let i = 0; i < path.length; i += 2) simplified.push(path[i]);
+      if (simplified[simplified.length - 1].wx !== endX || simplified[simplified.length - 1].wy !== endY) simplified.push({ wx: endX, wy: endY });
+      return simplified;
+    }
+
+    // Fallback: direct line with walkable search (old behavior)
     const dx = endX - startX;
     const dy = endY - startY;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const steps = Math.max(Math.ceil(dist / 3), 20);
-
-    // First pass: collect points along direct line that are walkable
     const validPoints: { wx: number; wy: number }[] = [{ wx: startX, wy: startY }];
     for (let i = 1; i <= steps; i++) {
       const t = i / steps;
       let px = Math.round(startX + dx * t);
       let py = Math.round(startY + dy * t);
-      // Try to find walkable point nearby if blocked
       if (this.getMoveCost(px, py) === Infinity) {
-        let found = false;
-        for (let r = 1; r <= 6 && !found; r++) {
-          for (const [ox, oy] of [[r,0],[-r,0],[0,r],[0,-r],[r,r],[-r,-r],[r,-r],[-r,r]]) {
-            if (this.getMoveCost(px+ox, py+oy) < Infinity) {
-              px += ox; py += oy; found = true; break;
-            }
+        let foundSide = false;
+        for (let r = 1; r <= 6 && !foundSide; r++) {
+          for (const [ox, oy] of [[r,0],[-r,0],[0,r],[0,-r],[r,r],[-r,-r],[r,-r],[-r,r]] as const) {
+            if (this.getMoveCost(px+ox, py+oy) < Infinity) { px += ox; py += oy; foundSide = true; break; }
           }
         }
-        if (!found) continue; // Skip this segment
+        if (!foundSide) continue;
       }
       validPoints.push({ wx: px, wy: py });
     }
-    // Ensure endpoint is included
     const last = validPoints[validPoints.length - 1];
-    if (last.wx !== endX || last.wy !== endY) {
-      if (this.getMoveCost(endX, endY) < Infinity) {
-        validPoints.push({ wx: endX, wy: endY });
-      }
-    }
+    if (last.wx !== endX || last.wy !== endY && this.getMoveCost(endX, endY) < Infinity) validPoints.push({ wx: endX, wy: endY });
     return validPoints;
   }
 

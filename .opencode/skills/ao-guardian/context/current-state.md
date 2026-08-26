@@ -23,8 +23,8 @@
 
 ## Current World
 
-- Continente tectónico 32×32 seed 42 + islas satélite, 15 biomas con `vegDensity` por `rainfall` y `slope`, ríos continuos inter-chunk `1.09%` vía `ridged 0.0016` + `rain>0.52` (CHG-014), vetas `iron/gold` en colinas (CHG-012), 1268 roads.
-- 12 asentamientos (3 capitals 9 cities) +3 reinos +30 POIs; `WALKABLE` deposits+swamp; `swamp` da `wood`.
+- Continente tectónico 32×32 seed 42 + islas satélite, 15 biomas `vegDensity`+`slope`, ríos 1.09% continuos, vetas `iron/gold` en colinas (CHG-012), asentamientos en valles fluviales (bonus +0.22 río, -0.28 pendiente) + roads A* 1463 con coste `river+6` (CHG-015).
+- 12 asentamientos (3 capitals 9 cities) +3 reinos +30 POIs; `WALKABLE` deposits+swamp.
 - Spawn: capital más cercana.
 
 ## Current Multiplayer Model
@@ -62,4 +62,4 @@
 
 ## Last Updated
 
-2026-08-26 (CHG-014 — vegetacion/rios continuidad)
+2026-08-26 (CHG-015 — asentamientos valle + caminos A*)
