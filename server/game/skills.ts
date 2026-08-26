@@ -114,8 +114,9 @@ export function useSkill(playerId: string, skillId: string, targetId?: string): 
 
     const dmgPlayer = Players.get(targetId);
     if (dmgPlayer && dmgPlayer.mapId === player.mapId && !Players.isDead(targetId)) {
-      const map = MAPS[dmgPlayer.mapId];
-      if (map?.zone !== MapZone.City) {
+      let zone: MapZone | undefined;
+      try { zone = getWorldMap().getMap(dmgPlayer.mapId)?.zone ?? MAPS[dmgPlayer.mapId]?.zone; } catch { zone = MAPS[dmgPlayer.mapId]?.zone; }
+      if (zone !== MapZone.City) {
         // Attacking an innocent player with a spell marks the caster criminal
         if (!isCriminal(dmgPlayer, now)) {
           player.criminalUntil = now + PVP_CRIMINAL_DURATION_MS;

@@ -4,12 +4,14 @@
 // ============================================================
 
 import type { Direction } from "../../shared/types.js";
-import { RESPAWN_GOLD_COST } from "../../shared/constants.js";
+import { PLAYER_MOVE_INTERVAL_MS, RESPAWN_GOLD_COST } from "../../shared/constants.js";
 import { MAPS, T } from "../../shared/maps.js";
 import { WT } from "../../shared/world-gen.js";
 import { Players, SpawnState } from "./state.js";
 import { spawnMonstersForMap } from "./monster-ai.js";
 import { getWorldMap } from "./world.js";
+
+const lastMoveAt = new Map<string, number>();
 
 const SETTLEMENT_BLOCKED = new Set<number>([
   WT.wall, WT.lava,
@@ -45,14 +47,24 @@ export function canMoveTo(mapId: string, x: number, y: number): boolean {
 }
 
 export function movePlayer(id: string, x: number, y: number, direction: Direction) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const ix = Math.floor(x);
+  const iy = Math.floor(y);
   const player = Players.get(id);
   if (!player || Players.isDead(id)) return null;
-  if (!canMoveTo(player.mapId, x, y)) return null;
+  if (!canMoveTo(player.mapId, ix, iy)) return null;
+  // Server-authority: distance and rate limit
+  const dist = Math.abs(player.x - ix) + Math.abs(player.y - iy);
+  if (dist > 1) return null;
+  const now = Date.now();
+  const last = lastMoveAt.get(id) ?? 0;
+  if (now - last < PLAYER_MOVE_INTERVAL_MS) return null;
+  lastMoveAt.set(id, now);
 
   // ---- Procedural world: check for settlement / POI entrance ----
   if (player.mapId === "world") {
     const wm = getWorldMap();
-    const settlement = wm.getSettlementAt(x, y);
+    const settlement = wm.getSettlementAt(ix, iy);
     if (settlement) {
       const targetMapId = wm.getSettlementMapId(settlement);
       const map = wm.getMap(targetMapId);
@@ -70,7 +82,7 @@ export function movePlayer(id: string, x: number, y: number, direction: Directio
 
       return { teleported: true, mapId: targetMapId, x: spawnX, y: spawnY };
     }
-    const poi = wm.getPOIAt(x, y);
+    const poi = wm.getPOIAt(ix, iy);
     if (poi) {
       const targetMapId = wm.getPOIMapId(poi);
       const map = wm.getMap(targetMapId);
@@ -97,8 +109,8 @@ export function movePlayer(id: string, x: number, y: number, direction: Directio
     if (map) {
       for (const conn of map.connections ?? []) {
         if (conn.targetMapId === "world" &&
-            x >= conn.triggerX && x < conn.triggerX + conn.triggerW &&
-            y >= conn.triggerY && y < conn.triggerY + conn.triggerH) {
+            ix >= conn.triggerX && ix < conn.triggerX + conn.triggerW &&
+            iy >= conn.triggerY && iy < conn.triggerY + conn.triggerH) {
           player.mapId = "world";
           player.x = conn.targetX;
           player.y = conn.targetY;
@@ -111,8 +123,8 @@ export function movePlayer(id: string, x: number, y: number, direction: Directio
 
   // ---- Legacy map connections ----
   for (const conn of MAPS[player.mapId]?.connections ?? []) {
-    if (x >= conn.triggerX && x < conn.triggerX + conn.triggerW &&
-        y >= conn.triggerY && y < conn.triggerY + conn.triggerH) {
+    if (ix >= conn.triggerX && ix < conn.triggerX + conn.triggerW &&
+        iy >= conn.triggerY && iy < conn.triggerY + conn.triggerH) {
       player.mapId = conn.targetMapId;
       player.x = conn.targetX;
       player.y = conn.targetY;
@@ -127,18 +139,19 @@ export function movePlayer(id: string, x: number, y: number, direction: Directio
     }
   }
 
-  player.x = x;
-  player.y = y;
+  player.x = ix;
+  player.y = iy;
   player.direction = direction;
   player.isMoving = true;
   return { teleported: false };
 }
 
 export function stopPlayer(id: string, x: number, y: number, direction: Direction) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return;
   const player = Players.get(id);
   if (!player) return;
-  player.x = x;
-  player.y = y;
+  player.x = Math.floor(x);
+  player.y = Math.floor(y);
   player.direction = direction;
   player.isMoving = false;
 }

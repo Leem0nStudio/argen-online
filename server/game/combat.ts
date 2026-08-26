@@ -134,8 +134,9 @@ export function tryAttack(attackerId: string, defenderId: string): DamageEvent |
     if (attacker.mapId !== defender.mapId) return null;
     const dist = Math.abs(attacker.x - defender.x) + Math.abs(attacker.y - defender.y);
     if (dist > ATTACK_RANGE) return null;
-    const map = MAPS[defender.mapId];
-    if (map?.zone === MapZone.City) return null;
+    let zone: MapZone | undefined;
+    try { zone = getWorldMap().getMap(defender.mapId)?.zone ?? MAPS[defender.mapId]?.zone; } catch { zone = MAPS[defender.mapId]?.zone; }
+    if (zone === MapZone.City) return null;
 
     if (hasDodge(defender) || hasInvuln(defender)) {
       AttackCooldowns.set(attackerId, now);

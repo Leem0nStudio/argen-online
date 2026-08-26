@@ -10,12 +10,12 @@
 | Magic | PARTIAL | hechizos vía sistema de skills | CURRENT PROJECT BEHAVIOR | |
 | Weapons | PARTIAL | ítems con stats.damage + equip | CURRENT PROJECT BEHABIOR | catálogo chico (~10 ítems) |
 | Armor | PARTIAL | stats.defense + equip por slots | CURRENT PROJECT BEHAVIOR | |
-| Inventory | IMPLEMENTED | pickup/drop/equip/consumibles/loot verificados en juego | CURRENT PROJECT BEHAVIOR | grid fijo, sin peso AO-style |
-| Experience | IMPLEMENTED | killMonster centralizada: XP en melee y skills, verificada con test | VERIFIED | curva level*100 |
-| Leveling | IMPLEMENTED | sube stats (HP+10 MP+5 STR+2 DEX+1 INT+1 CON+2), restaura HP/MP, mensaje global | VERIFIED | test unitario CHG-001 |
+| Inventory | IMPLEMENTED | pickup/drop/equip/consumibles/loot verificados + drop atómico server | VERIFIED | CHG-008 corrige drop no-op |
+| Experience | IMPLEMENTED | killMonster centralizada: XP vía sharedXpOnKill→grantXp única, sin duplicación | VERIFIED | CHG-008 curva `lvl*lvl*80+20` unificada |
+| Leveling | IMPLEMENTED | sube stats (HP+8+con*0.5 MP+4+int*0.3), statPoints, skill unlocks Q/W/E | VERIFIED | CHG-001+008 |
 | Death | IMPLEMENTED | -50 oro + 50% de un stack al azar en PvP + criminal -5 rep facción | VERIFIED | CHG-007 |
 | PvE | IMPLEMENTED | spawns, IA básica, loot, quests de caza | VERIFIED | CHG-007 |
-| PvP | IMPLEMENTED | criminalidad 5min, santuario en ciudades, botín al asesino, criminales rojos, drop de ítem | VERIFIED | CHG-007 |
+| PvP | IMPLEMENTED | criminalidad 5min, santuario Ciudad (legacy+procedural) verificado, botín al asesino | VERIFIED | CHG-008 fix santuario WorldMap fallback |
 | NPCs | IMPLEMENTED | comerciantes + banqueros + NPCs quest con diálogo y misiones | VERIFIED | CHG-007 |
 | Trade | IMPLEMENTED | /comerciar + sesión con doble confirmación, swap atómico servidor | VERIFIED | CHG-002; UI por prompts (mejorable) |
 | Professions | PARTIAL | recolección vía /recolectar en depósitos/bosques + cooldown | VERIFIED | CHG-004 |
@@ -30,7 +30,8 @@
 | Cities | IMPLEMENTED | asentamientos con interior, portón norte, servicios NPC | VERIFIED | |
 | Dungeons | IMPLEMENTED | 30 POIs con interiores (dungeon/cave/ruins/mine/shrine), entrada desde mundo, monstruos, salida a mundo | VERIFIED | CHG-005; minimapa marca POIs |
 | Economy | PARTIAL | oro + tiendas NPC + drops + banco + comercio J-J | CURRENT PROJECT BEHAVIOR | CHG-002; sin sumideros fuertes aún |
-| Persistence | IMPLEMENTED | SQLite, guardado al desconectar | VERIFIED | |
+| Persistence | IMPLEMENTED | SQLite WAL + busy_timeout, guardado atómico transaccional al desconectar | VERIFIED | CHG-008 savePlayerFull |
+| Movement | IMPLEMENTED | validación server-authority distancia≤1 y throttle 150ms | VERIFIED | CHG-008 |
 
 ## Status Definitions
 

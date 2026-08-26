@@ -10,16 +10,16 @@
 
 ## Current Gameplay
 
-- Registro/login con 4 clases: warrior, mage, archer, paladin (sin razas).
-- Atributos: str/dex/int/con; HP/MP derivados.
-- Combate melee servidor-autoritativo con crítico, esquiva, invulnerabilidad breve, absorción por escudo (`server/game/combat.ts`).
-- Habilidades por clase en `shared/types.ts` (SKILLS): daño, buffs, veneno, escudo absorbente.
-- Inventario funcional: recoger, tirar, equipar, pociones (`server/game/inventory.ts`).
-- Monstruos con IA simple, spawns y loot (`server/game/monster-ai.ts`).
-- NPCs comerciantes con tienda y diálogo (`server/game/npc.ts`, `world-map.ts` genera NPCs de asentamientos).
-- XP al matar (`combat.ts:227`) y niveles; penalización de muerte: -50 oro al resucitar.
-- Chat global simple.
-- Controles móviles: joystick analógico dinámico + D-pad con repetición + botón ataque (agosto 2026).
+- Registro/login con 4 clases + 5 razas (humano/elfo/elfo_oscuro/enano/gnomo) con mods (`RACE_MODS`).
+- Atributos: str/dex/int/con; HP/MP derivados; statPoints y skill unlocks Q/W/E por nivel.
+- Combate autoritativo con crítico, esquiva, invuln, absorción; santuario Ciudad (fallback WorldMap) verificado (`combat.ts:137`, `skills.ts:117`).
+- Habilidades por clase en `shared/types.ts` (SKILLS): daño, buffs, veneno, escudo absorbente; XP compartida en party.
+- Inventario funcional: recoger, tirar (atómico `dropItem` + Ground), equipar, pociones (`inventory.ts`), loot de monstruos.
+- Monstruos con IA (patrol/chase/attack/flee), spawns procedural y wilderness bias.
+- NPCs comerciantes + banqueros + quests; trade/party/clan/reputation/gathering/crafting implementados (CHG-002..007).
+- XP al matar vía `killMonster→sharedXpOnKill→grantXp` única, curva `lvl*lvl*80+20`, sin duplicación (CHG-008).
+- Chat global/party/clan + comandos `/trade /party /clan /reputacion` etc.
+- Controles móviles: joystick + D-pad + ataque.
 
 ## Current World
 
@@ -31,19 +31,19 @@
 
 ## Current Multiplayer Model
 
-- Socket.io eventos tipados (`shared/types.ts`). Servidor valida todo movimiento/combate.
-- Sin predicción del cliente con reconciliación formal (el cliente mueve localmente y el servidor corrige).
-- Guardado en DB al desconectar.
+- Socket.io eventos tipados (`shared/types.ts`). Servidor valida movimiento (dist≤1, 150ms throttle, sanitización) y combate.
+- Sin predicción formal con reconciliación (cliente mueve y servidor corrige).
+- Guardado atómico transaccional (`savePlayerFull`) al desconectar; WAL + busy_timeout 5s.
 
 ## Current Economy
 
-- Oro, tiendas NPC con buy/sellPrice fijos, drops de monstruos.
-- Sin comercio jugador-a-jugador, sin banco, sin crafting.
+- Oro, tiendas NPC, drops, banco (gold/items), comercio J-J atómico, crafting/gathering básico.
+- Ground items con broadcast por mapa; drop valioso en muerte PvP (50% stack + 10% oro).
 
 ## Current Progression
 
-- XP por kill → subida de nivel (fórmula pendiente de verificación).
-- Equipamiento por slots (weapon, armor, shield, head, boots, ring).
+- XP por kill → subida de nivel curva `xpForLevel = lvl*lvl*80+20` (single source `shared/constants.ts`), `MAX_LEVEL 50`, `STAT_POINTS_PER_LEVEL 3`.
+- Equipamiento por slots (weapon, armor, shield, head, boots, ring) + inventario 20 slots.
 
 ## Current Rendering
 
@@ -52,16 +52,16 @@
 
 ## Known Gaps
 
-- PvP sin verificar (tryAttack acepta cualquier targetId).
-- Comercio jugador-jugador, banco, party, clanes, profesiones, crafting, recursos, dungeons, reputación: ausentes.
-- Razas ausentes.
-- Muerte: solo penalización de oro; no hay pérdida de ítems (decisión AO pendiente).
+- Tests: 0 runners, `server/` sin type-check estricto (reveló 14 errores tsc al incluir).
+- Magic numbers dispersos (gather, trade, party) aún fuera de `constants.ts`.
+- Ground sin TTL/cap, broadcast global residual en algunos eventos.
+- Pérdida de muerte completa AO (fantasma/drop completo) pendiente Rift 71.
 
 ## Known Contradictions
 
-- `data/game.db` vs `game.db`: dos bases; el servidor usa `game.db`. Eliminar el residuo algún día.
-- Mapas estáticos legacy (`rucci`, campos) conviven con el mundo procedural; jugadores viejos pueden tener map_id legacy.
+- `data/game.db` removido del índice en CHG-008 (ahora ignorado, queda en disco pero no en repo).
+- Mapas legacy conviven con procedural; migración pendiente.
 
 ## Last Updated
 
-2026-08-25 (post-optimización 60fps y controles móviles)
+2026-08-26 (CHG-008 — deuda P0 authority/XP/persistencia)

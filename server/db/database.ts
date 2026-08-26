@@ -15,6 +15,8 @@ let db: Database.Database;
 export function initDB() {
   db = new Database(DB_PATH);
   db.pragma("journal_mode = WAL");
+  db.pragma("busy_timeout = 5000");
+  db.pragma("synchronous = NORMAL");
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS players (
@@ -272,6 +274,36 @@ export function saveEquipment(playerId: string, equipment: Record<string, string
     if (itemId) stmt.run(playerId, slot, itemId);
   }
 }
+
+export const savePlayerFull = (() => {
+  let tx: ((p: PlayerState) => void) | null = null;
+  return (player: PlayerState) => {
+    if (!tx) {
+      tx = db.transaction((p: PlayerState) => {
+        db.prepare(`
+          UPDATE players SET level = ?, experience = ?, stat_points = ?, skill_unlocks = ?, gold = ?, x = ?, y = ?, map_id = ?,
+            strength = ?, dexterity = ?, intelligence = ?, constitution = ?,
+            max_hp = ?, max_mp = ?
+          WHERE id = ?
+        `).run(
+          p.level, p.experience, p.statPoints ?? 0, (p.skillUnlocks ?? ["Q"]).join(","),
+          p.gold, p.x, p.y, p.mapId,
+          p.stats.strength, p.stats.dexterity, p.stats.intelligence, p.stats.constitution,
+          p.stats.maxHp, p.stats.maxMp, p.id
+        );
+        db.prepare("DELETE FROM inventory WHERE player_id = ?").run(p.id);
+        const invStmt = db.prepare("INSERT INTO inventory (player_id, item_id, quantity, slot) VALUES (?, ?, ?, ?)");
+        for (const item of p.inventory) invStmt.run(p.id, item.itemId, item.quantity, item.slot);
+        db.prepare("DELETE FROM equipment WHERE player_id = ?").run(p.id);
+        const eqStmt = db.prepare("INSERT INTO equipment (player_id, slot, item_id) VALUES (?, ?, ?)");
+        for (const [slot, itemId] of Object.entries(p.equipment as Record<string, string | null>)) {
+          if (itemId) eqStmt.run(p.id, slot, itemId);
+        }
+      });
+    }
+    (tx as (p: PlayerState) => void)(player);
+  };
+})();
 
 // ---- Clans (persistent) ----
 

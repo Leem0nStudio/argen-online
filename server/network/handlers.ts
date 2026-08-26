@@ -8,7 +8,7 @@ import { Direction } from "../../shared/types.js";
 import { ITEMS } from "../../shared/items.js";
 import {
   registerPlayer, authenticatePlayer, getPlayer as getDbPlayer,
-  savePlayer, saveInventory, saveEquipment,
+  savePlayer, saveInventory, saveEquipment, savePlayerFull,
 } from "../db/database.js";
 import {
   Players, Ground, SpawnState,
@@ -16,9 +16,10 @@ import {
 import {
   movePlayer, stopPlayer, respawnPlayer,
 } from "../game/movement.js";
-import { tryAttack, grantXp } from "../game/combat.js";
+import { tryAttack } from "../game/combat.js";
+import { SKILL_UNLOCK_LEVELS } from "../../shared/constants.js";
 import { useSkill } from "../game/skills.js";
-import { pickupItem, equipItem, useConsumable } from "../game/inventory.js";
+import { pickupItem, equipItem, useConsumable, dropItem } from "../game/inventory.js";
 import { addChatMessage, addSystemMessage } from "../game/chat.js";
 import { getNPC, npcBuyItem, npcSellItem } from "../game/npc.js";
 import { spawnMonstersForMap, getMonstersAsData } from "../game/monster-ai.js";
@@ -101,7 +102,9 @@ export function setupHandlers(io: GameServer) {
 
     socket.on("auth:register", (data) => {
       try {
-        const id = registerPlayer(data.username, data.password, data.characterClass);
+        const allowedRaces = ["humano","elfo","elfo_oscuro","enano","gnomo"] as const;
+        const race = (data as any).race && (allowedRaces as readonly string[]).includes((data as any).race) ? (data as any).race : "humano";
+        const id = registerPlayer(data.username, data.password, data.characterClass, race);
         const player = getDbPlayer(id);
         if (!player) {
           socket.emit("auth:error", "Error al crear personaje");
@@ -246,30 +249,20 @@ export function setupHandlers(io: GameServer) {
           }
           if (event.levelUp) {
             io.emit("chat:message", addSystemMessage(`⚔️ ${killer.username} ha alcanzado el nivel ${killer.level}!`));
+            // Notify killer of levelup (single source via killMonster→sharedXpOnKill→grantXp)
+            const newUnlocks = SKILL_UNLOCK_LEVELS[killer.level] ?? [];
+            socket.emit("player:levelup", { level: killer.level, statPoints: killer.statPoints, newUnlocks });
           }
         }
       }
 
       const victim = Players.get(targetId);
-      const monster = Monsters.get(targetId);
       if (victim && victim.stats.hp <= 0) {
         io.emit("combat:death", { killerId: playerId, victimId: targetId });
         const killer = Players.get(playerId);
         io.emit("chat:message", addSystemMessage(`${killer?.username} ha derrotado a ${victim.username}!`));
         io.to(targetId).emit("player:update", { ...victim } as any);
         io.emit("groundItems:update", Ground.onMap(victim.mapId));
-      }
-      // XP from monster kill
-      if (monster && monster.hp <= 0) {
-        const killer = Players.get(playerId);
-        if (killer) {
-          const xpResult = grantXp(killer, monster.xpReward);
-          io.emit("combat:damage", { attackerId: playerId, defenderId: targetId, damage: 0, isCrit: false, timestamp: Date.now(), xp: monster.xpReward });
-          if (xpResult.leveledUp) {
-            socket.emit("player:levelup", { level: xpResult.newLevel, statPoints: xpResult.totalStatPoints, newUnlocks: xpResult.newUnlocks });
-            io.emit("chat:message", addSystemMessage(`¡${killer.username} ha subido al nivel ${xpResult.newLevel}!`));
-          }
-        }
       }
 
       const attacker = Players.get(playerId);
@@ -578,8 +571,16 @@ export function setupHandlers(io: GameServer) {
     socket.on("item:drop", (inventorySlot, quantity) => {
       const playerId = socket.data.playerId;
       if (!playerId) return;
+      if (!Number.isFinite(inventorySlot) || !Number.isFinite(quantity)) return;
+      const qty = Math.floor(quantity);
+      if (qty <= 0) return;
+      const dropped = dropItem(playerId, Math.floor(inventorySlot), qty);
+      if (!dropped) return;
       const player = Players.get(playerId);
-      if (player) socket.emit("player:update", player);
+      if (player) {
+        socket.emit("player:update", { ...player } as any);
+        io.emit("groundItems:update", Ground.onMap(player.mapId));
+      }
     });
 
     socket.on("npc:interact", (npcId) => {
@@ -764,12 +765,10 @@ export function setupHandlers(io: GameServer) {
           io.to(player.mapId).emit("player:leave", playerId);
           io.emit("chat:message", addSystemMessage(`${player.username} ha salido del mundo.`));
         }
-        // Save before removing
+        // Save before removing — atomic
         const removed = Players.delete(playerId);
         if (removed) {
-          savePlayer(removed);
-          saveInventory(playerId, removed.inventory);
-          saveEquipment(playerId, removed.equipment as Record<string, string | null>);
+          try { savePlayerFull(removed as any); } catch { savePlayer(removed); saveInventory(playerId, removed.inventory); saveEquipment(playerId, removed.equipment as Record<string, string | null>); }
         }
       }
       console.log(`[Socket] Disconnected: ${socket.id}`);

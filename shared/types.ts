@@ -308,10 +308,8 @@ export interface MonsterData {
 }
 
 // ---- Utility ----
-
-export function xpForLevel(level: number): number {
-  return level * 100;
-}
+// Single source of truth lives in shared/constants.ts — re-export for convenience
+export { xpForLevel } from "./constants.js";
 
 // ---- Socket Event Maps ----
 

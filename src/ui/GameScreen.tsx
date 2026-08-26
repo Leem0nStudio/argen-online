@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { PlayerState, GroundItem, ChatMessage, ItemDef, DamageEvent, MonsterData, SkillEvent, WorldMetaData, TradeState, PartyState, ClanState } from "@shared/types";
 import { MapZone, Direction, SKILLS } from "@shared/types";
+import { xpForLevel } from "@shared/constants";
 import { RECIPES } from "@shared/crafting";
 import { QUESTS } from "@shared/quests";
 import { ITEMS } from "@shared/items";
@@ -424,7 +425,7 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
 
   const hpPct = (player.stats.hp / player.stats.maxHp) * 100;
   const mpPct = (player.stats.mp / player.stats.maxMp) * 100;
-  const xpPct = player.level > 0 ? (player.experience / (player.level * 100)) * 100 : 0;
+  const xpPct = player.level > 0 ? (player.experience / xpForLevel(player.level)) * 100 : 0;
 
   if (engineError) {
     return (
@@ -456,7 +457,7 @@ export default function GameScreen({ player: initialPlayer, onLogout }: Props) {
         <div className="hud-bars">
           <div className="hud-bar"><div className="hud-bar-fill hp" style={{ width: `${hpPct}%` }} /><div className="hud-bar-text">HP {player.stats.hp}/{player.stats.maxHp}</div></div>
           <div className="hud-bar"><div className="hud-bar-fill mp" style={{ width: `${mpPct}%` }} /><div className="hud-bar-text">MP {player.stats.mp}/{player.stats.maxMp}</div></div>
-          <div className="hud-bar"><div className="hud-bar-fill xp" style={{ width: `${xpPct}%` }} /><div className="hud-bar-text">XP {player.experience}/{player.level * 100}</div></div>
+          <div className="hud-bar"><div className="hud-bar-fill xp" style={{ width: `${xpPct}%` }} /><div className="hud-bar-text">XP {player.experience}/{xpForLevel(player.level)}</div></div>
         </div>
         <div className="hud-info">
           <span>Lv.{player.level}</span><span>💰 {player.gold}</span>
