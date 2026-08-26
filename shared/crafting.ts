@@ -8,6 +8,7 @@ export interface Recipe {
   resultItemId: string;
   resultQuantity: number;
   ingredients: { itemId: string; quantity: number }[];
+  goldCost?: number;
 }
 
 export const RECIPES: Recipe[] = [
@@ -17,6 +18,7 @@ export const RECIPES: Recipe[] = [
     resultItemId: "wooden_shield",
     resultQuantity: 1,
     ingredients: [{ itemId: "wood", quantity: 6 }],
+    goldCost: 10,
   },
   {
     id: "iron_sword",
@@ -24,6 +26,7 @@ export const RECIPES: Recipe[] = [
     resultItemId: "iron_sword",
     resultQuantity: 1,
     ingredients: [{ itemId: "iron_ore", quantity: 5 }],
+    goldCost: 25,
   },
   {
     id: "chainmail",
@@ -34,5 +37,22 @@ export const RECIPES: Recipe[] = [
       { itemId: "iron_ore", quantity: 10 },
       { itemId: "gold_nugget", quantity: 2 },
     ],
+    goldCost: 60,
+  },
+  {
+    id: "iron_pickaxe",
+    name: "Pico de Hierro",
+    resultItemId: "iron_pickaxe",
+    resultQuantity: 1,
+    ingredients: [{ itemId: "iron_ore", quantity: 3 }, { itemId: "wood", quantity: 2 }],
+    goldCost: 15,
+  },
+  {
+    id: "wood_axe",
+    name: "Hacha de Leñador",
+    resultItemId: "wood_axe",
+    resultQuantity: 1,
+    ingredients: [{ itemId: "wood", quantity: 3 }, { itemId: "iron_ore", quantity: 1 }],
+    goldCost: 12,
   },
 ];

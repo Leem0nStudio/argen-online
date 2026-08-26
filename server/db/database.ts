@@ -176,9 +176,11 @@ export function registerPlayer(username: string, password: string, characterClas
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 100)
   `).run(id, username, hash, characterClass, race, spawnX, spawnY, spawnMap, s.str, s.dex, s.int, s.con, s.hp, s.mp);
 
-  // Default inventory: a health potion and bandage
+  // Default inventory: consumables + starter tools (scarcity: need tool to gather, but new players get basic ones)
   db.prepare(`INSERT INTO inventory (player_id, item_id, quantity, slot) VALUES (?, 'health_potion', 3, 0)`).run(id);
   db.prepare(`INSERT INTO inventory (player_id, item_id, quantity, slot) VALUES (?, 'bandage', 5, 1)`).run(id);
+  db.prepare(`INSERT INTO inventory (player_id, item_id, quantity, slot) VALUES (?, 'wood_axe', 1, 2)`).run(id);
+  db.prepare(`INSERT INTO inventory (player_id, item_id, quantity, slot) VALUES (?, 'iron_pickaxe', 1, 3)`).run(id);
 
   return id;
 }

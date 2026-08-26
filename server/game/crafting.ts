@@ -3,6 +3,7 @@
 // ============================================================
 
 import { RECIPES, type Recipe } from "../../shared/crafting.js";
+import { MAX_INVENTORY_SLOTS } from "../../shared/constants.js";
 import { Players } from "./state.js";
 
 export function getRecipe(recipeId: string): Recipe | undefined {
@@ -17,8 +18,17 @@ export function craft(playerId: string, recipeId: string): { ok: boolean; messag
   const player = Players.get(playerId);
   if (!player) return { ok: false, message: "No estás en el mundo" };
 
+  // Estación requerida: solo en ciudades/settlements (banco de trabajo)
+  if (!player.mapId.startsWith("settlement_")) {
+    return { ok: false, message: "Necesitas un banco de trabajo (en la ciudad) para craftear." };
+  }
+
   const recipe = getRecipe(recipeId);
   if (!recipe) return { ok: false, message: "Receta desconocida" };
+
+  if ((recipe.goldCost ?? 0) > 0 && player.gold < recipe.goldCost!) {
+    return { ok: false, message: `Oro insuficiente: necesitas ${recipe.goldCost} oro.` };
+  }
 
   // Validate all ingredients present
   for (const ing of recipe.ingredients) {
@@ -32,11 +42,11 @@ export function craft(playerId: string, recipeId: string): { ok: boolean; messag
   if (!stacksIntoExisting) {
     const usedSlots = new Set(player.inventory.map(i => i.slot));
     let hasFree = false;
-    for (let s = 0; s < 20; s++) { if (!usedSlots.has(s)) { hasFree = true; break; } }
+    for (let s = 0; s < MAX_INVENTORY_SLOTS; s++) { if (!usedSlots.has(s)) { hasFree = true; break; } }
     if (!hasFree) return { ok: false, message: "Inventario lleno" };
   }
 
-  // Consume ingredients
+  // Consume ingredients + gold
   for (const ing of recipe.ingredients) {
     let remaining = ing.quantity;
     for (const inv of player.inventory) {
@@ -47,6 +57,7 @@ export function craft(playerId: string, recipeId: string): { ok: boolean; messag
     }
     player.inventory = player.inventory.filter(i => i.quantity > 0);
   }
+  if ((recipe.goldCost ?? 0) > 0) player.gold -= recipe.goldCost!;
 
   // Produce result
   const existing = player.inventory.find(i => i.itemId === recipe.resultItemId);
@@ -55,7 +66,7 @@ export function craft(playerId: string, recipeId: string): { ok: boolean; messag
   } else {
     const usedSlots = new Set(player.inventory.map(i => i.slot));
     let slot = -1;
-    for (let s = 0; s < 20; s++) { if (!usedSlots.has(s)) { slot = s; break; } }
+    for (let s = 0; s < MAX_INVENTORY_SLOTS; s++) { if (!usedSlots.has(s)) { slot = s; break; } }
     player.inventory.push({ itemId: recipe.resultItemId, quantity: recipe.resultQuantity, slot });
   }
 

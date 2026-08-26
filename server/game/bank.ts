@@ -23,8 +23,10 @@ export function withdrawGold(playerId: string, amount: number): boolean {
   if (!player || !Number.isFinite(amount) || amount <= 0) return false;
   const stored = getBankGold(playerId);
   if (stored < amount) return false;
+  const fee = Math.ceil(amount * 0.02);
   setBankGold(playerId, stored - amount);
-  player.gold += amount;
+  // Fee is sink: player receives amount - fee (minimum 0)
+  player.gold += Math.max(0, amount - fee);
   return true;
 }
 

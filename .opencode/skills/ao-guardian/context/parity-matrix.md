@@ -18,9 +18,9 @@
 | PvP | IMPLEMENTED | criminalidad 5min, santuario Ciudad (legacy+procedural) verificado, botín al asesino | VERIFIED | CHG-008 fix santuario WorldMap fallback |
 | NPCs | IMPLEMENTED | comerciantes + banqueros + NPCs quest con diálogo y misiones | VERIFIED | CHG-007 |
 | Trade | IMPLEMENTED | /comerciar + sesión con doble confirmación (RANGE 5 centralizado), swap atómico | VERIFIED | CHG-002+009 |
-| Professions | PARTIAL | /recolectar cooldown 3s centralizado, sin herramienta | VERIFIED | CHG-004+009 |
-| Crafting | IMPLEMENTED | 3 recetas vía /craftear (invoca constants centralizados) | VERIFIED | CHG-004 |
-| Resources | IMPLEMENTED | iron_ore/wood/gold_nugget + Ground TTL 5m cap 200 | VERIFIED | CHG-009 Ground purge |
+| Professions | IMPLEMENTED | /recolectar finito 5-12m respawn, requiere pico/hacha | VERIFIED | CHG-011 escasez |
+| Crafting | IMPLEMENTED | 5 recetas (incl. herramientas) vía /craftear en ciudad + costo oro | VERIFIED | CHG-011 estación |
+| Resources | IMPLEMENTED | iron_ore/wood/gold_nugget con agotamiento + stock NPC 10/resupply | VERIFIED | CHG-011 escasez |
 | Factions | IMPLEMENTED | reinos con territorio (getKingdomAt), reputación por caza | VERIFIED | CHG-006 |
 | Clans | IMPLEMENTED | /clan crear/invitar/salir, hasta 8 miembros, chat /c, panel visible, persistido en SQLite | VERIFIED | CHG-006; loadClansFromDB al iniciar |
 | Party | IMPLEMENTED | /party, XP compartida con bonus 1.25x, chat /p, roster visible | VERIFIED | CHG-003; sin loot distribution ni HP de miembros | |
@@ -29,7 +29,7 @@
 | World | IMPLEMENTED | continente procedural seed 42, streaming chunks | VERIFIED | determinista |
 | Cities | IMPLEMENTED | asentamientos con interior, portón norte, servicios NPC | VERIFIED | |
 | Dungeons | IMPLEMENTED | 30 POIs con interiores (dungeon/cave/ruins/mine/shrine), entrada desde mundo, monstruos, salida a mundo | VERIFIED | CHG-005; minimapa marca POIs |
-| Economy | PARTIAL | oro + tiendas NPC + drops + banco + comercio J-J | CURRENT PROJECT BEHAVIOR | CHG-002; sin sumideros fuertes aún |
+| Economy | IMPLEMENTED | oro con banco fee 2%, tiendas stock 10 + descuento rep, drops | VERIFIED | CHG-011 sumideros |
 | Persistence | IMPLEMENTED | SQLite WAL + busy_timeout, guardado atómico, logger pino | VERIFIED | CHG-008/010 |
 | Movement | IMPLEMENTED | server-authority dist≤1 150ms + rooms (leave/join) | VERIFIED | CHG-008/010 |
 | Networking | IMPLEMENTED | rooms por mapId, chats/daño/loot per-map | VERIFIED | CHG-010 |

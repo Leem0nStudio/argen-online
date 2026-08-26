@@ -81,4 +81,14 @@ export const ITEMS: Record<string, ItemDef> = {
     rarity: "uncommon", buyPrice: 50, sellPrice: 25,
     stackable: true, description: "Un pequeño lingote de oro puro."
   },
+  iron_pickaxe: {
+    id: "iron_pickaxe", name: "Pico de Hierro", type: "weapon", slot: "weapon",
+    rarity: "common", buyPrice: 40, sellPrice: 10,
+    stats: { damage: 2 }, stackable: false, description: "Necesario para minar mineral. Se equipa como arma."
+  },
+  wood_axe: {
+    id: "wood_axe", name: "Hacha de Leñador", type: "weapon", slot: "weapon",
+    rarity: "common", buyPrice: 35, sellPrice: 8,
+    stats: { damage: 2 }, stackable: false, description: "Necesaria para talar madera."
+  },
 };

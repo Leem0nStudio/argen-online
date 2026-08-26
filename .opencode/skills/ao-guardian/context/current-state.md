@@ -37,7 +37,8 @@
 
 ## Current Economy
 
-- Oro, tiendas NPC, drops, banco (gold/items), comercio J-J atómico, crafting/gathering básico (constants centralizados).
+- Oro con fee banco 2% sink, tiendas stock 10/resupply 10m + descuento 15% por rep, drops.
+- Gathering finito 5-12m respawn por nodo, requiere pico/hacha; crafting 5 recetas (incl. herramientas) solo en ciudad + costo 10-60 oro, starter kit con herramientas (CHG-011).
 - Ground TTL 5m cap 200 per-map; drop PvP 50% stack +10% oro; head aporta defensa; equip sin pérdida si full (CHG-010).
 
 ## Current Progression
@@ -52,9 +53,8 @@
 
 ## Known Gaps
 
-- Tests: 6 tests (xp/combat/constants) vitest 4.1; `eslint` baseline solo config sin CI.
-- Ground purge per-map listo; monsters ahora per-map rooms (CHG-010).
-- Head defense y equip fix verificados (CHG-010); queda balance de precios y sumideros.
+- Tests: 10 tests (xp/combat/constants/economy) vitest 4.1; `eslint` baseline sin CI.
+- Economía: stock global por item (no per-NPC) y herramientas starter podrían saturar early game.
 - Muerte completa AO pendiente Rift 71.
 
 ## Known Contradictions
@@ -64,4 +64,4 @@
 
 ## Last Updated
 
-2026-08-26 (CHG-010 — rooms p2 + logger + head/equip fix)
+2026-08-26 (CHG-011 — economia escasez)
