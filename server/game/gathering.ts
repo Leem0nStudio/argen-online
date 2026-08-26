@@ -20,6 +20,7 @@ const RESPAWN_MS: Record<number, number> = {
   [WT.denseForest]: 5 * 60 * 1000,
   [WT.taiga]: 5 * 60 * 1000,
   [WT.jungle]: 5 * 60 * 1000,
+  [WT.swamp]: 5 * 60 * 1000,
 };
 
 const TOOL_REQUIRED: Record<number, string[]> = {
@@ -29,6 +30,7 @@ const TOOL_REQUIRED: Record<number, string[]> = {
   [WT.denseForest]: ["wood_axe", "iron_pickaxe"],
   [WT.taiga]: ["wood_axe", "iron_pickaxe"],
   [WT.jungle]: ["wood_axe", "iron_pickaxe"],
+  [WT.swamp]: ["wood_axe", "iron_pickaxe"],
 };
 
 function hasTool(player: ReturnType<typeof Players.get>, required: string[]): boolean {
@@ -63,6 +65,7 @@ const YIELDS: Record<number, { itemId: string; bonusChance?: number }> = {
   [WT.denseForest]: { itemId: "wood", bonusChance: 0.5 },
   [WT.taiga]: { itemId: "wood", bonusChance: 0.3 },
   [WT.jungle]: { itemId: "wood", bonusChance: 0.4 },
+  [WT.swamp]: { itemId: "wood", bonusChance: 0.25 },
 };
 
 /** Check the tile the player stands on and the 4 adjacent tiles — skip depleted */

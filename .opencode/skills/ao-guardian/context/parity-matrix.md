@@ -25,8 +25,8 @@
 | Clans | IMPLEMENTED | /clan crear/invitar/salir, hasta 8 miembros, chat /c, panel visible, persistido en SQLite | VERIFIED | CHG-006; loadClansFromDB al iniciar |
 | Party | IMPLEMENTED | /party, XP compartida con bonus 1.25x, chat /p, roster visible | VERIFIED | CHG-003; sin loot distribution ni HP de miembros | |
 | Reputation | IMPLEMENTED | +1-2 por kill en territorio del reino, /reputacion muestra standing, se guarda en DB | VERIFIED | CHG-006 |
-| Wilderness | IMPLEMENTED | peligro escala con distancia a ciudades (bias Ogro/Esqueleto lejos) | VERIFIED | CHG-007 |
-| World | IMPLEMENTED | continente procedural seed 42, streaming chunks | VERIFIED | determinista |
+| Wilderness | IMPLEMENTED | peligro escala con distancia + relieve (bias Ogro/Esqueleto, colinas con vetas) | VERIFIED | CHG-007+012+013 |
+| World | IMPLEMENTED | continente tectónico multi-isla 32×32 seed 42, 15 biomas + relieve local + 1268 roads | VERIFIED | CHG-013 determinista + CHG-012 vetas |
 | Cities | IMPLEMENTED | asentamientos con interior, portón norte, servicios NPC | VERIFIED | |
 | Dungeons | IMPLEMENTED | 30 POIs con interiores (dungeon/cave/ruins/mine/shrine), entrada desde mundo, monstruos, salida a mundo | VERIFIED | CHG-005; minimapa marca POIs |
 | Economy | IMPLEMENTED | oro con banco fee 2%, tiendas stock 10 + descuento rep, drops | VERIFIED | CHG-011 sumideros |

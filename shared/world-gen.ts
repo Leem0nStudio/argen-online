@@ -224,55 +224,63 @@ export class WorldGenerator {
   private computeElevation(wx: number, wy: number): number {
     const n = this.noise;
 
-    // 1. Continental mask — large-scale landmass shape
-    // Use domain warping for organic continent shapes
+    // 1. Continental macro — warped fbm + multi-island mask
     const [warpX, warpY] = n.warp(wx, wy, 80, 0.0008);
     const continental = n.fbm(warpX, warpY, {
       octaves: 4,
-      frequency: 0.0008,
+      frequency: 0.0007,
       lacunarity: 2.0,
       gain: 0.5,
     });
+    // Island chain fbm (low freq) to create archipelago beyond central mass
+    const islandField = n.fbm(wx, wy, { octaves: 2, frequency: 0.0004, gain: 0.6 });
+    const islandMask = (islandField + 1) / 2; // 0..1
 
-    // 2. Ridged noise for mountain chains
-    const ridge = n.ridged(wx, wy, {
-      octaves: 4,
+    // 2. Tectonic plates — voronoi 192 + edge ridge
+    const plate = n.voronoi(wx, wy, 192);
+    const edgeDist = plate.distance2 - plate.distance; // 0 at boundary
+    const plateRidge = Math.exp(-edgeDist / 18) * 0.55; // mountain chains on boundaries
+    const plateWarp = n.simple(wx, wy, 0.008) * 0.08;
+
+    // 3. Ridged noise for sub-ridges inside plates
+    const ridge = n.ridged(wx + plateWarp * 100, wy + plateWarp * 100, {
+      octaves: 3,
       frequency: 0.003,
       lacunarity: 2.2,
       gain: 0.55,
     });
 
-    // 3. Fine detail noise
+    // 4. Fine detail + geological voronoi texture
     const detail = n.fbm(wx, wy, {
       octaves: 3,
-      frequency: 0.01,
+      frequency: 0.012,
       lacunarity: 2.0,
       gain: 0.4,
     });
-
-    // 4. Voronoi for geological regions
     const vor = n.voronoi(wx, wy, 256);
-    const voronoiFactor = vor.distance / 128; // Normalized
+    const voronoiFactor = vor.distance / 128;
 
-    // Combine with weights
+    // Combine with tectonic bias
     let elevation =
-      continental * 0.55 +
-      ridge * 0.25 +
-      detail * 0.12 +
-      voronoiFactor * 0.08;
+      continental * 0.42 +
+      islandMask * 0.10 +
+      plateRidge * 0.22 +
+      ridge * 0.13 +
+      detail * 0.08 +
+      voronoiFactor * 0.05;
 
-    // Continental mask — fade edges to ocean
+    // Continental radial mask + island integration (multi-continental)
     const worldCx = this.worldWidth * CHUNK_SIZE / 2;
     const worldCy = this.worldHeight * CHUNK_SIZE / 2;
-    const maxRadius = Math.min(worldCx, worldCy) * 0.85;
+    const maxRadius = Math.min(worldCx, worldCy) * 0.88;
     const dx = (wx - worldCx) / maxRadius;
     const dy = (wy - worldCy) / maxRadius;
     const distFromCenter = Math.sqrt(dx * dx + dy * dy);
-    // Smooth falloff
-    const mask = distFromCenter < 0.7 ? 1.0 : distFromCenter > 1.0 ? 0.0 : 1.0 - (distFromCenter - 0.7) / 0.3;
-    elevation = elevation * mask;
+    const radial = distFromCenter < 0.55 ? 1.0 : distFromCenter > 1.15 ? 0.0 : 1.0 - (distFromCenter - 0.55) / 0.60;
+    // Blend radial with islandMask to allow satellite islands far from center
+    const mask = Math.max(radial, islandMask * 0.35 * radial + (1 - radial) * 0.15);
+    elevation = elevation * (0.65 + mask * 0.35);
 
-    // Clamp to [-1, 1]
     return Math.max(-1, Math.min(1, elevation));
   }
 
@@ -380,30 +388,40 @@ export class WorldGenerator {
     const rain = this.getRainfall(wx, wy);
     const B = BIOME_THRESHOLDS;
 
-    // Ocean biomes
+    // Ocean early out
     if (elev < ELEVATION.SHALLOW) return "deep_ocean";
     if (elev < ELEVATION.BEACH) return "ocean";
     if (elev < ELEVATION.BEACH + 0.02) return "beach";
+
+    // Mountains dominate regardless of climate
+    if (elev > ELEVATION.PEAK) return "snow_peak";
+    if (elev > ELEVATION.HIGH_MOUNTAIN) return "high_mountain";
+    if (elev > ELEVATION.MOUNTAIN) return "mountain";
+    if (elev > ELEVATION.HILLS && rain < 0.25) return "rocky_hills";
+
+    // New: Wetland — high rain + temperate + low elev
+    if (rain > 0.78 && temp > -0.05 && temp < 0.35 && elev > ELEVATION.BEACH && elev < ELEVATION.LOWLAND) return "wetland";
+    // New: Boreal forest — cold humid + mid elev
+    if (temp > B.TUNDRA_TEMP && temp < B.TAIGA_TEMP + 0.05 && rain > 0.45 && rain < 0.75 && elev < ELEVATION.HILLS) return "boreal_forest";
+    // New: Cold desert — cold dry
+    if (temp < B.TAIGA_TEMP && rain < 0.28) return "cold_desert";
 
     // Tundra
     if (temp < B.TUNDRA_TEMP) {
       if (elev > ELEVATION.HILLS) return "snow_peak";
       return "tundra";
     }
-
     // Taiga
     if (temp < B.TAIGA_TEMP) {
       if (rain > 0.5) return "taiga";
       return "tundra";
     }
-
     // Hot zones
     if (temp > B.HOT_TEMP) {
       if (rain > 0.6) return "jungle";
       if (rain > B.SAVANNA_HUMIDITY) return "savanna";
       return "desert";
     }
-
     // Warm zones
     if (temp > B.WARM_TEMP) {
       if (rain > 0.7) return "jungle";
@@ -411,8 +429,7 @@ export class WorldGenerator {
       if (rain > B.GRASSLAND_HUMIDITY) return "savanna";
       return "desert";
     }
-
-    // Temperate zones
+    // Temperate zones with wetland/boreal already handled
     if (temp > B.TEMPERATE_TEMP) {
       if (elev > ELEVATION.HILLS) return "hills";
       if (rain > B.JUNGLE_HUMIDITY) return "dense_forest";
@@ -421,16 +438,10 @@ export class WorldGenerator {
       if (rain > B.SAVANNA_HUMIDITY) return "plains";
       return "drylands";
     }
-
     // Cool zones
     if (rain > 0.6) return "forest";
     if (rain > 0.4) return "grassland";
     return "tundra";
-
-    // Mountains
-    if (elev > ELEVATION.PEAK) return "snow_peak";
-    if (elev > ELEVATION.HIGH_MOUNTAIN) return "high_mountain";
-    if (elev > ELEVATION.MOUNTAIN) return "mountain";
   }
 
   // ---- PHASE 5: Tile Classification ----
@@ -444,22 +455,29 @@ export class WorldGenerator {
     // Check for rivers (done separately in hydrology)
     // For now, classify by biome + elevation
 
+    // Local relief: slope via elevation gradient (cheap central diff)
+    const slope = Math.abs(this.getElevation(wx + 1, wy) - this.getElevation(wx - 1, wy)) +
+                  Math.abs(this.getElevation(wx, wy + 1) - this.getElevation(wx, wy - 1));
+
     switch (biome) {
       case "deep_ocean": return WT.deepOcean;
       case "ocean": return WT.ocean;
-      case "beach": return WT.beach;
-      case "tundra": return WT.tundra;
+      case "beach": return slope > 0.08 ? WT.sand : WT.beach;
+      case "tundra": return variation > 0.55 ? WT.tundra : WT.savanna;
       case "taiga": return variation > 0.6 ? WT.taiga : WT.tundra;
-      case "desert": return WT.desert;
+      case "boreal_forest": return variation > 0.5 ? WT.forest : WT.taiga;
+      case "cold_desert": return variation > 0.6 ? WT.desert : WT.sand;
+      case "wetland": return variation > 0.5 ? WT.swamp : WT.darkGrass;
+      case "desert": return variation > 0.65 ? WT.desert : WT.sand;
       case "savanna": return variation > 0.7 ? WT.savanna : WT.plains;
-      case "jungle": return WT.jungle;
+      case "jungle": return slope > 0.06 ? WT.denseForest : WT.jungle;
       case "dense_forest": return WT.denseForest;
       case "forest": return variation > 0.5 ? WT.forest : WT.darkGrass;
       case "grassland": return variation > 0.6 ? WT.flowerGrass : WT.grass;
-      case "plains": return WT.plains;
+      case "plains": return slope > 0.07 ? WT.hills : WT.plains;
       case "drylands": return variation > 0.5 ? WT.sand : WT.grass;
-      case "hills": return WT.hills;
-      case "rocky_hills": return WT.rockyHills;
+      case "hills": return slope > 0.09 ? WT.rockyHills : WT.hills;
+      case "rocky_hills": return variation > 0.5 ? WT.rockyHills : WT.hills;
       case "mountain": return WT.mountain;
       case "high_mountain": return WT.highMountain;
       case "snow_peak": return WT.snowPeak;

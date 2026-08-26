@@ -23,9 +23,8 @@
 
 ## Current World
 
-- Continente procedural 32×32 chunks (CHUNK_SIZE=64 tiles), seed 42 + vetas `ironDeposit/goldDeposit` en colinas/montañas (~3% rust, 0.8% oro, determinístico) (CHG-012).
-- 12 asentamientos con interiores, 3 reinos, 803 roads, 30 POIs.
-- Streaming chunks + `WALKABLE` incluye deposits; `getTile` refleja vetas superficie.
+- Continente tectónico 32×32 seed 42 + islas satélite, 15 biomas (`wetland/boreal/cold_desert` + relieve `slope`), 1268 roads por multi-masa, vetas `iron/gold` en colinas (CHG-012/013).
+- 12 asentamientos (3 capitals 9 cities) + 3 reinos +30 POIs; streaming chunks + `WALKABLE` deposits.
 - Spawn: capital más cercana.
 
 ## Current Multiplayer Model
@@ -63,4 +62,4 @@
 
 ## Last Updated
 
-2026-08-26 (CHG-012 — recursos superficie)
+2026-08-26 (CHG-013 — continente/biomas complejos)
