@@ -52,21 +52,21 @@ const CLASS_COLORS: Record<string, number> = {
   warrior: 0xcc4444, mage: 0x4444cc, archer: 0x44aa44, paladin: 0xccaa44,
 };
 
-// Procedural world tile colors (WT ids)
+// Procedural world tile colors — vibrant, AO-inspired but modern
 const WT_COLORS: Record<number, number> = {
-  [WT.deepOcean]: 0x0a1a3a, [WT.ocean]: 0x1a3a6a, [WT.shallowWater]: 0x2a5a8a,
-  [WT.beach]: 0xd4b865, [WT.sand]: 0xc2a645, [WT.grass]: 0x2d5a1e,
-  [WT.darkGrass]: 0x1f4a15, [WT.flowerGrass]: 0x3a7a2a, [WT.plains]: 0x4a8a3a,
-  [WT.forest]: 0x1a3a0e, [WT.denseForest]: 0x0e2a08, [WT.swamp]: 0x2a3a1a,
-  [WT.tundra]: 0x8a9aaa, [WT.savanna]: 0x8a9a3a, [WT.hills]: 0x5a6a4a,
-  [WT.rockyHills]: 0x6a5a4a, [WT.mountain]: 0x5a5a5a, [WT.highMountain]: 0x7a7a7a,
-  [WT.snowPeak]: 0xeeeeff, [WT.desert]: 0xd4aa45, [WT.jungle]: 0x0e4a0e,
-  [WT.taiga]: 0x2a4a3a, [WT.coral]: 0xffaa88, [WT.river]: 0x2a6aaa,
-  [WT.lake]: 0x1a5a8a, [WT.dirtRoad]: 0x8a7050, [WT.stoneRoad]: 0x7a7a6a,
+  [WT.deepOcean]: 0x0a1e3a, [WT.ocean]: 0x123a6a, [WT.shallowWater]: 0x2d5d8a,
+  [WT.beach]: 0xe2c27a, [WT.sand]: 0xd0b060, [WT.grass]: 0x2f6b1e,
+  [WT.darkGrass]: 0x214d14, [WT.flowerGrass]: 0x3d8a2a, [WT.plains]: 0x4f8a33,
+  [WT.forest]: 0x183a0a, [WT.denseForest]: 0x0c2a06, [WT.swamp]: 0x2f3d1a,
+  [WT.tundra]: 0x9ab0c0, [WT.savanna]: 0x9ab54a, [WT.hills]: 0x6b7a4e,
+  [WT.rockyHills]: 0x7a6a52, [WT.mountain]: 0x6a6a6a, [WT.highMountain]: 0x8a8a8a,
+  [WT.snowPeak]: 0xf2f8ff, [WT.desert]: 0xe0b85a, [WT.jungle]: 0x0c4a0a,
+  [WT.taiga]: 0x2f4a32, [WT.coral]: 0xffaa88, [WT.river]: 0x2f6eaa,
+  [WT.lake]: 0x225a8a, [WT.dirtRoad]: 0x8a7050, [WT.stoneRoad]: 0x8a8a7a,
   [WT.townFloor]: 0x6b5b4a, [WT.wall]: 0x3a3a3a, [WT.path]: 0x8b7355,
   [WT.bridge]: 0x8b6914, [WT.cave]: 0x2a1a1a, [WT.ruins]: 0x4a4a4a,
-  [WT.lava]: 0xcc3300, [WT.ironDeposit]: 0x8a7a6a, [WT.goldDeposit]: 0xd4aa20,
-  [WT.crystalDeposit]: 0x88aacc,
+  [WT.lava]: 0xcc3300, [WT.ironDeposit]: 0x7a6a5a, [WT.goldDeposit]: 0xd4aa20,
+  [WT.crystalDeposit]: 0x88c0dd,
 };
 
 // World tiles that block movement
@@ -810,7 +810,7 @@ export class GameEngine {
   addOtherPlayer(player: PlayerState) {
     if (this.otherPlayers.has(player.id)) { this.updateOtherPlayer(player); return; }
     const container = new PIXI.Container();
-    drawEnhancedCharacter(container, this.playerColor(player), false, player.characterClass, player.stats.hp / player.stats.maxHp, player.username, player.level);
+    drawEnhancedCharacter(container, this.playerColor(player), false, player.characterClass, player.stats.hp / player.stats.maxHp, player.username, player.level, player.username, (player as any).race, (player as any).equipment);
     container.x = player.x * TILE_SIZE + TILE_SIZE / 2;
     container.y = player.y * TILE_SIZE + TILE_SIZE / 2;
     container.eventMode = "static";
@@ -825,7 +825,7 @@ export class GameEngine {
     if (!container) { this.addOtherPlayer(player); return; }
     container.x = player.x * TILE_SIZE + TILE_SIZE / 2;
     container.y = player.y * TILE_SIZE + TILE_SIZE / 2;
-    drawEnhancedCharacter(container, this.playerColor(player), false, player.characterClass, player.stats.hp / player.stats.maxHp, player.username, player.level);
+    drawEnhancedCharacter(container, this.playerColor(player), false, player.characterClass, player.stats.hp / player.stats.maxHp, player.username, player.level, player.username, (player as any).race, (player as any).equipment);
   }
 
   /** Criminals render red for everyone */
@@ -847,14 +847,22 @@ export class GameEngine {
 
   addNPC(npc: NPCData) {
     const container = new PIXI.Container();
-    const colors: Record<string, number> = { merchant: 0xccaa44, quest: 0x4488cc, dialog: 0x44aa66 };
-    drawEnhancedCharacter(container, colors[npc.type] ?? 0xcccccc, false, "warrior", 1, npc.name, 1, npc.name);
+    const npcColors: Record<string, number> = { merchant: 0xccaa44, banker: 0xd4aa20, quest: 0x4488cc, dialog: 0x44aa66 };
+    const npcClass: Record<string, string> = { merchant: "warrior", banker: "paladin", quest: "mage", dialog: "archer" };
+    drawEnhancedCharacter(container, npcColors[npc.type] ?? 0xcccccc, false, npcClass[npc.type] ?? "warrior", 1, npc.name, 1, npc.name);
 
-    const icons: Record<string, string> = { merchant: "💰", quest: "❗", dialog: "💬" };
-    const indicator = new PIXI.Text(icons[npc.type] ?? "?", { fontSize: 16 });
+    const icons: Record<string, string> = { merchant: "🛒", banker: "🏦", quest: "❗", dialog: "💬" };
+    const indicator = new PIXI.Text(icons[npc.type] ?? "?", { fontSize: npc.type === "banker" ? 18 : 16 });
     indicator.anchor.set(0.5);
-    indicator.y = -36;
+    indicator.y = npc.type === "quest" ? -42 : -36;
     container.addChild(indicator);
+    // Banker gets coin overlay, merchant bag hint
+    if (npc.type === "banker") {
+      const coin = new PIXI.Graphics();
+      coin.beginFill(0xd4aa20, 0.9); coin.drawCircle(0, -18, 4); coin.endFill();
+      coin.beginFill(0xffdd44); coin.drawCircle(0, -18, 1.5); coin.endFill();
+      container.addChild(coin);
+    }
 
     let bobPhase = Math.random() * Math.PI * 2;
     this.app.ticker.add(() => {
@@ -1054,10 +1062,10 @@ export class GameEngine {
         g.drawRect(px, py, TILE_SIZE, TILE_SIZE);
         g.endFill();
 
-        // Cheap detail overlays per biome-ish tile
+        // Rich detail overlays per tile — zero-asset procedural
+        const wx = ox + lx, wy = oy + ly;
         if (tileId === WT.grass || tileId === WT.darkGrass || tileId === WT.flowerGrass || tileId === WT.plains) {
-          const wx = ox + lx, wy = oy + ly;
-          g.lineStyle(1, 0x3a7a2e, 0.3);
+          g.lineStyle(1, 0x3a7a2e, 0.32);
           const seedCount = (wx * 7 + wy * 13) % 4;
           for (let i = 0; i < seedCount; i++) {
             const gx = px + 4 + ((wx * 17 + i * 11) % 24);
@@ -1066,23 +1074,107 @@ export class GameEngine {
           }
           g.lineStyle(0);
           if (tileId === WT.flowerGrass && (wx + wy) % 3 === 0) {
-            g.beginFill((wx % 2 === 0) ? 0xff4444 : 0xffdd44, 0.6);
+            g.beginFill((wx % 2 === 0) ? 0xff5a4a : 0xffdd44, 0.65);
             g.drawCircle(px + 10 + (wx * 5) % 12, py + 10 + (wy * 3) % 12, 2);
             g.endFill();
           }
         } else if (tileId === WT.forest || tileId === WT.denseForest || tileId === WT.taiga || tileId === WT.jungle) {
-          // Simple tree canopy dot
-          g.beginFill(tileId === WT.jungle ? 0x0e6a0e : 0x2a5a18, 0.5);
-          g.drawCircle(px + TILE_SIZE / 2 + ((ox + lx) % 5) - 2, py + TILE_SIZE / 2 + ((oy + ly) % 5) - 2, 9);
+          // Canopy + trunk hint + shade
+          g.beginFill(tileId === WT.jungle ? 0x0c5a0c : tileId === WT.denseForest ? 0x0a2a05 : 0x2a5a18, 0.55);
+          g.drawCircle(px + TILE_SIZE / 2 + ((wx * 3) % 5) - 2, py + TILE_SIZE / 2 + ((wy * 7) % 5) - 2, tileId === WT.denseForest ? 10 : 9);
+          g.endFill();
+          // Trunk dot
+          g.beginFill(0x5a3a1a, 0.5);
+          g.drawRect(px + 14 + ((wx * 5) % 4), py + 20 + ((wy * 3) % 4), 4, 6);
           g.endFill();
         } else if (tileId === WT.mountain || tileId === WT.highMountain || tileId === WT.snowPeak) {
-          // Ridge highlight
-          g.lineStyle(2, 0xffffff, tileId === WT.snowPeak ? 0.35 : 0.15);
+          g.lineStyle(2, 0xffffff, tileId === WT.snowPeak ? 0.38 : 0.16);
           g.moveTo(px + 4, py + TILE_SIZE - 4); g.lineTo(px + TILE_SIZE / 2, py + 4); g.lineTo(px + TILE_SIZE - 4, py + TILE_SIZE - 4);
           g.lineStyle(0);
+          // Rock facets
+          g.beginFill(0xffffff, 0.07);
+          g.drawPolygon([px + 8, py + 12, px + 12, py + 8, px + 20, py + 14, px + 16, py + 20]);
+          g.endFill();
         } else if (tileId === WT.dirtRoad || tileId === WT.stoneRoad || tileId === WT.path) {
-          g.beginFill(tileId === WT.stoneRoad ? 0x8a8a7a : 0x9a8060, 0.25);
-          g.drawCircle(px + 8 + (ox * 3 + lx) % 12, py + 8 + (oy * 5 + ly) % 16, 2);
+          g.beginFill(tileId === WT.stoneRoad ? 0x8a8a7a : 0x9a8060, 0.28);
+          g.drawCircle(px + 8 + (wx * 3) % 12, py + 8 + (wy * 5) % 16, 2);
+          g.drawCircle(px + 20 + (wx * 7) % 10, py + 20 + (wy * 3) % 10, 1.5);
+          g.endFill();
+          // Center line
+          if (tileId === WT.stoneRoad) {
+            g.lineStyle(1, 0x6a6a5a, 0.18);
+            g.moveTo(px + 2, py + TILE_SIZE / 2); g.lineTo(px + TILE_SIZE - 2, py + TILE_SIZE / 2);
+            g.lineStyle(0);
+          }
+        } else if (tileId === WT.beach || tileId === WT.sand) {
+          g.beginFill(0xc8b47a, 0.22);
+          g.drawCircle(px + 6 + (wx * 5) % 12, py + 8 + (wy * 7) % 12, 1.5);
+          g.drawCircle(px + 20 + (wx * 3) % 10, py + 22 + (wy * 5) % 10, 1.2);
+          g.endFill();
+          // Wave fringe
+          if (tileId === WT.beach) {
+            g.lineStyle(1, 0xffffff, 0.12);
+            g.moveTo(px, py + 6 + (wx % 4)); g.lineTo(px + TILE_SIZE, py + 4 + (wy % 5));
+            g.lineStyle(0);
+          }
+        } else if (tileId === WT.desert) {
+          // Dune stripes
+          g.lineStyle(1, 0xc8a85a, 0.18);
+          g.moveTo(px + 4 + (wx % 6), py + 8); g.lineTo(px + 20 + (wx % 6), py + 12);
+          g.moveTo(px + 8, py + 20 + (wy % 6)); g.lineTo(px + 24, py + 24 + (wy % 4));
+          g.lineStyle(0);
+        } else if (tileId === WT.tundra || tileId === WT.savanna) {
+          const col = tileId === WT.tundra ? 0xaac0d0 : 0x9a9a6a;
+          g.beginFill(col, 0.18);
+          g.drawCircle(px + 8 + (wx * 7) % 16, py + 10 + (wy * 5) % 16, 2);
+          g.drawCircle(px + 22 + (wx * 3) % 8, py + 20 + (wy * 7) % 8, 1.5);
+          g.endFill();
+        } else if (tileId === WT.hills || tileId === WT.rockyHills) {
+          // Contour + rocks
+          g.lineStyle(1, 0xffffff, 0.07);
+          g.moveTo(px + 4, py + 12); g.lineTo(px + 12, py + 8); g.lineTo(px + 20, py + 12);
+          g.lineStyle(0);
+          g.beginFill(0x6a5a40, 0.22);
+          g.drawCircle(px + 10 + (wx * 5) % 12, py + 18 + (wy * 3) % 8, 2.5);
+          g.drawCircle(px + 22 + (wx * 7) % 8, py + 10 + (wy * 5) % 8, 1.8);
+          g.endFill();
+        } else if (tileId === WT.swamp) {
+          g.beginFill(0x3a5a2a, 0.32);
+          g.drawCircle(px + 8 + (wx * 5) % 16, py + 20 + (wy * 3) % 8, 2.2);
+          g.drawCircle(px + 18 + (wx * 3) % 12, py + 12 + (wy * 7) % 10, 1.5);
+          g.endFill();
+          // Lily pad
+          g.beginFill(0x4a8a3a, 0.28);
+          g.drawEllipse(px + 16 + (wx % 4), py + 16 + (wy % 4), 5, 3);
+          g.endFill();
+        } else if (tileId === WT.river || tileId === WT.lake || tileId === WT.shallowWater) {
+          g.beginFill(0x3a7ab0, 0.22);
+          g.drawEllipse(px + 16 + ((wx * 3) % 6) - 3, py + 16 + ((wy * 5) % 6) - 3, 7, 3);
+          g.endFill();
+          // Flow highlight
+          g.lineStyle(1, 0x6aa0d0, 0.14);
+          g.moveTo(px + 4, py + 16 + (wx % 3)); g.lineTo(px + TILE_SIZE - 4, py + 16 + (wy % 3));
+          g.lineStyle(0);
+        } else if (tileId === WT.ironDeposit) {
+          g.beginFill(0x5a4a3a, 0.45);
+          g.drawCircle(px + 10 + (wx * 7) % 12, py + 12 + (wy * 5) % 12, 3);
+          g.drawCircle(px + 20 + (wx * 3) % 10, py + 20 + (wy * 7) % 8, 2);
+          g.endFill();
+          // Sparkle
+          g.beginFill(0xaa9988, 0.5);
+          g.drawCircle(px + 16 + (wx % 3), py + 16 + (wy % 3), 1);
+          g.endFill();
+        } else if (tileId === WT.goldDeposit) {
+          g.beginFill(0x8a6a10, 0.38);
+          g.drawCircle(px + 12 + (wx * 5) % 10, py + 14 + (wy * 7) % 10, 3.5);
+          g.endFill();
+          g.beginFill(0xffdd44, 0.55);
+          g.drawCircle(px + 14 + (wx % 4), py + 14 + (wy % 4), 1.2);
+          g.endFill();
+        } else if (tileId === WT.deepOcean || tileId === WT.ocean) {
+          // Depth shimmer
+          g.beginFill(0x1a4a7a, 0.12);
+          g.drawEllipse(px + 16 + (wx % 4), py + 16 + (wy % 4), 12, 4);
           g.endFill();
         }
       }
@@ -1125,6 +1217,7 @@ export class GameEngine {
       true, this.localPlayer.characterClass,
       this.localPlayer.stats.hp / this.localPlayer.stats.maxHp,
       this.localPlayer.username, this.localPlayer.level, this.localPlayer.username,
+      (this.localPlayer as any).race, (this.localPlayer as any).equipment,
     );
     this.localPlayerGfx.x = this.localPlayer.x * TILE_SIZE + TILE_SIZE / 2;
     this.localPlayerGfx.y = this.localPlayer.y * TILE_SIZE + TILE_SIZE / 2;

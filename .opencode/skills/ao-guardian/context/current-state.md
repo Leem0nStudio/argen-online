@@ -46,8 +46,8 @@
 
 ## Current Rendering
 
-- PixiJS Graphics procedurales (zero-asset ✓).
-- Optimizaciones aplicadas (ago 2026): caché de sprites por firma, terreno 1 Graphics/chunk, culling de chunks lejanos, contador FPS (tecla F / 3 dedos).
+- PixiJS 7 procedural zero-asset (CHG-016): `WT_COLORS` vibrantes, 14 overlays por tile (forest canopy+trunk, mountain ridge, beach wave, desert dune, hills contour, swamp lily, river flow, iron veins, gold sparkle, ocean shimmer) en 1 Graphics/chunk 60fps.
+- Jugadores: `raceMods` skin/scale (enano 0.88, gnomo 0.78, elfo 1.04) + `armor/weapon/shield/head/boots` visibles, `sig` incluye `race|equip`; NPCs `merchant🛒/banker🏦/quest❗` + coin, mobs `goblin 0.92/wolf 1.02/skeleton/ogro 1.32` + arma (dagger/claws/espada/club).
 
 ## Known Gaps
 
@@ -62,4 +62,4 @@
 
 ## Last Updated
 
-2026-08-26 (CHG-015 — asentamientos valle + caminos A*)
+2026-08-26 (CHG-016 — visual assets procedurales)

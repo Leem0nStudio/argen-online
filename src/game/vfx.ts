@@ -272,67 +272,86 @@ export function drawEnhancedCharacter(
   name: string,
   level: number,
   username?: string,
+  race?: string,
+  equipment?: { weapon?: string | null; armor?: string | null; shield?: string | null; head?: string | null; boots?: string | null; ring?: string | null },
 ) {
-  // Skip full rebuild when nothing visually changed (big perf win)
-  const sig = `${username || name}|${level}|${charClass}|${isLocal ? 1 : 0}|${color}|${Math.round(hpPct * 20)}`;
+  const equipSig = equipment ? `${equipment.weapon ?? ""}|${equipment.armor ?? ""}|${equipment.shield ?? ""}|${equipment.head ?? ""}` : "";
+  const sig = `${username || name}|${level}|${charClass}|${race ?? ""}|${equipSig}|${isLocal ? 1 : 0}|${color}|${Math.round(hpPct * 20)}`;
   if ((container as any)._vfxSig === sig) return;
   (container as any)._vfxSig = sig;
   container.removeChildren();
 
-  const bodyColor = color;
+  // Race modifiers
+  const raceMods: Record<string, { skin: number; scale: number; hair: number }> = {
+    humano: { skin: 0xffcc99, scale: 1, hair: 0x553311 },
+    elfo: { skin: 0xffe8cc, scale: 1.04, hair: 0xdddd77 },
+    elfo_oscuro: { skin: 0xc8b8d0, scale: 1.04, hair: 0xeeeeff },
+    enano: { skin: 0xd8a080, scale: 0.88, hair: 0x8a4422 },
+    gnomo: { skin: 0xffd8b0, scale: 0.78, hair: 0xcc8855 },
+  };
+  const rm = raceMods[race ?? "humano"] ?? raceMods.humano;
+  const bodyColorBase = color;
+  const skinColor = rm.skin;
+  const s = rm.scale;
 
-  // Shadow
+  // Armor tint overrides body color
+  const armorColors: Record<string, number> = { leather_armor: 0x8a5a2a, chainmail: 0x7a8a8a, plate_armor: 0xc0c8d0 };
+  const bodyColor = equipment?.armor && armorColors[equipment.armor] ? armorColors[equipment.armor] : bodyColorBase;
+
+  // Shadow (scaled)
   const shadow = new PIXI.Graphics();
   shadow.beginFill(0x000000, 0.2);
-  shadow.drawEllipse(0, 14, 10, 4);
+  shadow.drawEllipse(0, 14 * s, 10 * s, 4 * s);
   shadow.endFill();
   container.addChild(shadow);
 
-  // Body
+  // Body (scaled + armor tint)
   const body = new PIXI.Graphics();
   body.beginFill(bodyColor);
-  body.drawRoundedRect(-9, -10, 18, 22, 5);
+  body.drawRoundedRect(-9 * s, -10 * s, 18 * s, 22 * s, 5 * s);
   body.endFill();
   // Belt
   body.beginFill(0x553311);
-  body.drawRect(-9, 4, 18, 3);
+  body.drawRect(-9 * s, 4 * s, 18 * s, 3 * s);
   body.endFill();
-  // Belt buckle
   body.beginFill(0xccaa44);
-  body.drawRect(-2, 4, 4, 3);
+  body.drawRect(-2 * s, 4 * s, 4 * s, 3 * s);
   body.endFill();
   container.addChild(body);
 
-  // Head
+  // Head (race skin)
   const head = new PIXI.Graphics();
-  head.beginFill(0xffcc99);
-  head.drawCircle(0, -16, 8);
+  head.beginFill(skinColor);
+  head.drawCircle(0, -16, 8 * s);
   head.endFill();
   container.addChild(head);
+  // Head equipment (helmet)
+  if (equipment?.head) {
+    const helm = new PIXI.Graphics();
+    const helmColors: Record<string, number> = { leather_armor: 0x6a4a2a, chainmail: 0x8a8a8a, plate_armor: 0xc0c8d0 };
+    helm.beginFill(helmColors[equipment.head] ?? 0x7a6a4a);
+    helm.drawRoundedRect(-8 * s, -24 * s, 16 * s, 8 * s, 3 * s);
+    helm.endFill();
+    container.addChild(helm);
+  }
 
-  // Hair (varies by class)
+  // Hair / helmet (class + race)
   const hair = new PIXI.Graphics();
-  const hairColors: Record<string, number> = {
-    warrior: 0x553311, mage: 0x2222aa, archer: 0x886622, paladin: 0xcccccc,
-  };
-  hair.beginFill(hairColors[charClass] ?? 0x553311);
+  const classHair: Record<string, number> = { warrior: rm.hair, mage: 0x2222aa, archer: rm.hair, paladin: 0xcccccc };
+  hair.beginFill(classHair[charClass] ?? rm.hair);
   if (charClass === "warrior") {
-    // Short spiky hair
-    hair.moveTo(-6, -20); hair.lineTo(-3, -26); hair.lineTo(0, -22);
-    hair.lineTo(3, -26); hair.lineTo(6, -20);
-    hair.lineTo(6, -18); hair.lineTo(-6, -18);
+    hair.moveTo(-6 * s, -20 * s); hair.lineTo(-3 * s, -26 * s); hair.lineTo(0, -22 * s);
+    hair.lineTo(3 * s, -26 * s); hair.lineTo(6 * s, -20 * s);
+    hair.lineTo(6 * s, -18 * s); hair.lineTo(-6 * s, -18 * s);
     hair.closePath();
   } else if (charClass === "mage") {
-    // Pointy hat silhouette
-    hair.moveTo(-8, -18); hair.lineTo(0, -32); hair.lineTo(8, -18);
+    hair.moveTo(-8 * s, -18 * s); hair.lineTo(0, -32 * s); hair.lineTo(8 * s, -18 * s);
     hair.closePath();
   } else if (charClass === "paladin") {
-    // Helmet
-    hair.drawRoundedRect(-8, -24, 16, 8, 3);
-    hair.drawRect(-1, -26, 2, 4);
+    hair.drawRoundedRect(-8 * s, -24 * s, 16 * s, 8 * s, 3 * s);
+    hair.drawRect(-1 * s, -26 * s, 2 * s, 4 * s);
   } else {
-    // Simple hood
-    hair.drawRoundedRect(-7, -23, 14, 6, 2);
+    hair.drawRoundedRect(-7 * s, -23 * s, 14 * s, 6 * s, 2 * s);
   }
   hair.endFill();
   container.addChild(hair);
@@ -350,11 +369,13 @@ export function drawEnhancedCharacter(
   eyes.endFill();
   container.addChild(eyes);
 
-  // Feet
+  // Feet (boots tint)
   const feet = new PIXI.Graphics();
-  feet.beginFill(0x332211);
-  feet.drawRoundedRect(-7, 12, 6, 4, 2);
-  feet.drawRoundedRect(1, 12, 6, 4, 2);
+  const bootsColors: Record<string, number> = { leather_armor: 0x5a3a1a, chainmail: 0x4a4a4a, plate_armor: 0x8a8a8a };
+  const bootCol = equipment?.boots && bootsColors[equipment.boots] ? bootsColors[equipment.boots] : 0x332211;
+  feet.beginFill(bootCol);
+  feet.drawRoundedRect(-7 * s, 12 * s, 6 * s, 4 * s, 2 * s);
+  feet.drawRoundedRect(1 * s, 12 * s, 6 * s, 4 * s, 2 * s);
   feet.endFill();
   container.addChild(feet);
 
@@ -400,6 +421,44 @@ export function drawEnhancedCharacter(
     },
   };
   emblems[charClass]?.();
+
+  // Equipment visuals (weapon/shield) — zero-asset geometry
+  if (equipment?.weapon) {
+    const w = new PIXI.Graphics();
+    const weaponColors: Record<string, number> = { rusty_sword: 0x7a7a7a, iron_sword: 0x9a9a9a, steel_sword: 0xccdddd, oak_bow: 0x8a5a1a, mage_staff: 0x5a3a8a, flame_blade: 0xff4422, iron_pickaxe: 0x6a6a6a, wood_axe: 0x6a4a2a };
+    const col = weaponColors[equipment.weapon] ?? 0xcccccc;
+    if (equipment.weapon.includes("bow")) {
+      w.lineStyle(1.5 * s, 0x8a5a1a);
+      w.arc(10 * s, -2 * s, 7 * s, -1.0, 1.0);
+      w.moveTo(10 * s, -8 * s); w.lineTo(10 * s, 4 * s);
+    } else if (equipment.weapon.includes("staff")) {
+      w.lineStyle(2 * s, col);
+      w.moveTo(10 * s, -12 * s); w.lineTo(10 * s, 8 * s);
+      w.beginFill(0x44aaff, 0.7); w.drawCircle(10 * s, -14 * s, 3 * s); w.endFill();
+    } else {
+      // Sword / axe / pickaxe
+      w.beginFill(col);
+      w.drawRect(9 * s, -10 * s, 2.5 * s, 14 * s);
+      w.endFill();
+      w.beginFill(0x553311);
+      w.drawRect(8 * s, 0 * s, 4.5 * s, 3 * s);
+      w.endFill();
+      if (equipment.weapon.includes("axe") || equipment.weapon.includes("pickaxe")) {
+        w.beginFill(0x8a8a8a);
+        w.drawRect(6 * s, -12 * s, 8 * s, 4 * s);
+        w.endFill();
+      }
+    }
+    container.addChild(w);
+  }
+  if (equipment?.shield) {
+    const sh = new PIXI.Graphics();
+    const shieldColors: Record<string, number> = { wooden_shield: 0x8a5a2a, chainmail: 0x7a7a7a };
+    sh.beginFill(shieldColors[equipment.shield] ?? 0x8a5a2a, 0.9);
+    sh.drawRoundedRect(-14 * s, -6 * s, 7 * s, 10 * s, 2 * s);
+    sh.endFill();
+    container.addChild(sh);
+  }
 
   // Name
   const nameText = new PIXI.Text(username || name, {
@@ -447,11 +506,11 @@ export function drawEnhancedCharacter(
 // Enhanced Monster Drawing
 // ============================================================
 
-const MONSTER_VISUALS: Record<string, { bodyColor: number; eyeColor: number; shape: string }> = {
-  Goblin: { bodyColor: 0x44aa44, eyeColor: 0xffff00, shape: "goblin" },
-  Lobo: { bodyColor: 0x666666, eyeColor: 0xff4444, shape: "wolf" },
-  Esqueleto: { bodyColor: 0xddddcc, eyeColor: 0xff0000, shape: "skeleton" },
-  Ogro: { bodyColor: 0x886644, eyeColor: 0xff2222, shape: "ogre" },
+const MONSTER_VISUALS: Record<string, { bodyColor: number; eyeColor: number; shape: string; scale: number }> = {
+  Goblin: { bodyColor: 0x44cc33, eyeColor: 0xffff00, shape: "goblin", scale: 0.92 },
+  Lobo: { bodyColor: 0x5a5a5a, eyeColor: 0xff5533, shape: "wolf", scale: 1.02 },
+  Esqueleto: { bodyColor: 0xe8e0d0, eyeColor: 0xff2222, shape: "skeleton", scale: 1.0 },
+  Ogro: { bodyColor: 0x8a5a2a, eyeColor: 0xff1111, shape: "ogre", scale: 1.32 },
 };
 
 export function drawEnhancedMonster(container: PIXI.Container, name: string, hpPct: number) {
@@ -459,7 +518,8 @@ export function drawEnhancedMonster(container: PIXI.Container, name: string, hpP
   if ((container as any)._vfxSig === sig) return;
   (container as any)._vfxSig = sig;
   container.removeChildren();
-  const vis = MONSTER_VISUALS[name] ?? { bodyColor: 0xaa3333, eyeColor: 0xff0000, shape: "default" };
+  const vis = (MONSTER_VISUALS[name] ?? { bodyColor: 0xaa3333, eyeColor: 0xff0000, shape: "default", scale: 1 }) as typeof MONSTER_VISUALS[string];
+  container.scale.set(vis.scale ?? 1);
 
   // Shadow
   const shadow = new PIXI.Graphics();
@@ -523,6 +583,26 @@ export function drawEnhancedMonster(container: PIXI.Container, name: string, hpP
   eyes.drawCircle(3, -3, 0.8);
   eyes.endFill();
   container.addChild(eyes);
+
+  // Weapon hint per monster
+  const weapon = new PIXI.Graphics();
+  if (vis.shape === "goblin") {
+    weapon.beginFill(0x7a7a7a); weapon.drawRect(7, -4, 2, 8); weapon.endFill();
+    weapon.beginFill(0xcc2222); weapon.drawCircle(8, -6, 1.5); weapon.endFill();
+  } else if (vis.shape === "wolf") {
+    // Claws
+    weapon.lineStyle(1, 0xcccccc, 0.7);
+    weapon.moveTo(-6, 4); weapon.lineTo(-9, 7);
+    weapon.moveTo(6, 4); weapon.lineTo(9, 7);
+    weapon.lineStyle(0);
+  } else if (vis.shape === "skeleton") {
+    weapon.beginFill(0xddccaa); weapon.drawRect(8, -8, 2, 12); weapon.endFill();
+    weapon.beginFill(0xaaaaaa); weapon.moveTo(6, -8); weapon.lineTo(12, -8); weapon.lineTo(9, -12); weapon.closePath(); weapon.endFill();
+  } else if (vis.shape === "ogre") {
+    weapon.beginFill(0x5a3a1a); weapon.drawRect(10, -10, 3, 14); weapon.endFill();
+    weapon.beginFill(0x6a6a6a); weapon.drawCircle(11.5, -12, 4); weapon.endFill();
+  }
+  container.addChild(weapon);
 
   // Name
   const nameText = new PIXI.Text(name, {
