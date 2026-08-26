@@ -3,18 +3,16 @@
 // ============================================================
 
 import { WorldMapManager } from "../../shared/world-map.js";
+import { logger } from "../utils/logger.js";
 
 let worldMapManager: WorldMapManager | null = null;
-const WORLD_SEED = 42; // Default seed — deterministic
+const WORLD_SEED = Number(process.env.WORLD_SEED ?? 42);
 
 export function initWorld(seed: number = WORLD_SEED): WorldMapManager {
-  console.log(`🌍 Generating world with seed ${seed}...`);
+  logger.info({ seed }, "🌍 Generating world");
   const start = Date.now();
   worldMapManager = new WorldMapManager(seed, 64, 64);
-  console.log(`🌍 World generated in ${Date.now() - start}ms`);
-  console.log(`   ${worldMapManager.settlements.length} settlements`);
-  console.log(`   ${worldMapManager.pois.length} POIs`);
-  console.log(`   ${worldMapManager.world.roads.length} road segments`);
+  logger.info({ duration: Date.now() - start, settlements: worldMapManager.settlements.length, pois: worldMapManager.pois.length, roads: worldMapManager.world.roads.length }, "🌍 World generated");
   return worldMapManager;
 }
 

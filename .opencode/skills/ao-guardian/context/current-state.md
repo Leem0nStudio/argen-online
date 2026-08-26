@@ -31,14 +31,14 @@
 
 ## Current Multiplayer Model
 
-- Socket.io eventos tipados (`shared/types.ts`). Servidor valida movimiento (dist≤1, 150ms throttle, sanitización) y combate.
-- Sin predicción formal con reconciliación (cliente mueve y servidor corrige).
-- Guardado atómico transaccional (`savePlayerFull`) al desconectar; WAL + busy_timeout 5s.
+- Socket.io eventos tipados (`shared/types.ts`), rooms por `mapId` (`join/leave` + `io.to(mapId)` para `move/damage/death/ground/monsters/chat` CHG-010).
+- Servidor valida movimiento (dist≤1, 150ms, sanitización) y combate (head+defense).
+- Guardado atómico (`savePlayerFull`) + logger `pino` + health `/health` antes de static.
 
 ## Current Economy
 
-- Oro, tiendas NPC, drops, banco (gold/items), comercio J-J atómico, crafting/gathering básico.
-- Ground items con broadcast por mapa; drop valioso en muerte PvP (50% stack + 10% oro).
+- Oro, tiendas NPC, drops, banco (gold/items), comercio J-J atómico, crafting/gathering básico (constants centralizados).
+- Ground TTL 5m cap 200 per-map; drop PvP 50% stack +10% oro; head aporta defensa; equip sin pérdida si full (CHG-010).
 
 ## Current Progression
 
@@ -52,10 +52,10 @@
 
 ## Known Gaps
 
-- Tests: vitest 4.1 con 4 tests xp/combat (CHG-009), `server/` ahora type-checked (`tsconfig` incluye server, 14 errores corregidos).
-- Constants: centralizados `GATHER/TRADE/PARTY/CLAN/GROUND` en `shared/constants.ts` (CHG-009).
-- Ground TTL 5m cap 200 con purge per-map (CHG-009); queda broadcast global residual en 5 handlers (futuro rooms).
-- Pérdida de muerte completa AO (fantasma/drop completo) pendiente Rift 71.
+- Tests: 6 tests (xp/combat/constants) vitest 4.1; `eslint` baseline solo config sin CI.
+- Ground purge per-map listo; monsters ahora per-map rooms (CHG-010).
+- Head defense y equip fix verificados (CHG-010); queda balance de precios y sumideros.
+- Muerte completa AO pendiente Rift 71.
 
 ## Known Contradictions
 
@@ -64,4 +64,4 @@
 
 ## Last Updated
 
-2026-08-26 (CHG-009 — consolidación P1 tsc/constants/seguridad)
+2026-08-26 (CHG-010 — rooms p2 + logger + head/equip fix)

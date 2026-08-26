@@ -71,14 +71,17 @@ export function equipItem(playerId: string, inventorySlot: number): boolean {
   const slot = itemDef.slot as keyof typeof player.equipment;
   const currentEquipped = player.equipment[slot];
   if (currentEquipped) {
-    const newSlot = findFreeSlot(player.inventory);
-    if (newSlot !== -1) {
-      player.inventory.push({ itemId: currentEquipped, quantity: 1, slot: newSlot });
-    }
+    // Need free slot to stash currently equipped item — otherwise would lose it
+    const inventoryWithoutEquipping = player.inventory.filter(i => i.slot !== inventorySlot);
+    const newSlot = findFreeSlot(inventoryWithoutEquipping);
+    if (newSlot === -1) return false;
+    player.inventory = inventoryWithoutEquipping;
+    player.inventory.push({ itemId: currentEquipped, quantity: 1, slot: newSlot });
+  } else {
+    player.inventory = player.inventory.filter(i => i.slot !== inventorySlot);
   }
 
   (player.equipment as unknown as Record<string, string | null>)[slot] = invItem.itemId;
-  player.inventory = player.inventory.filter(i => i.slot !== inventorySlot);
   return true;
 }
 

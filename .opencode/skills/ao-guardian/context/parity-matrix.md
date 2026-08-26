@@ -6,11 +6,11 @@
 | Races | IMPLEMENTED | 5 razas (humano/elfo/elfo_oscuro/enano/gnomo) con mods str/dex/int/con/hp/mp | VERIFIED | RACE_MODS en constants.ts |
 | Attributes | PARTIAL | str/dex/int/con fijos por clase, usados en fórmulas de combate | CURRENT PROJECT BEHAVIOR | sin distribución por nivel |
 | Skills | PARTIAL | SKILLS por clase: daño, buffs, veneno, escudo | CURRENT PROJECT BEHAVIOR | sin árbol de niveles de skill |
-| Combat | PARTIAL | melee autoritativo: crítico, esquiva, invuln, escudo | CURRENT PROJECT BEHAVIOR | sin distancia/ranged proyectiles |
-| Magic | PARTIAL | hechizos vía sistema de skills | CURRENT PROJECT BEHAVIOR | |
+| Combat | PARTIAL | melee autoritativo: crítico, esquiva, invuln, escudo (head+defense CHG-010) | CURRENT PROJECT BEHAVIOR | per-map rooms, sin ranged |
+| Magic | PARTIAL | hechizos vía sistema de skills (per-map broadcast) | CURRENT PROJECT BEHAVIOR | CHG-010 rooms |
 | Weapons | PARTIAL | ítems con stats.damage + equip | CURRENT PROJECT BEHABIOR | catálogo chico (~10 ítems) |
-| Armor | PARTIAL | stats.defense + equip por slots | CURRENT PROJECT BEHAVIOR | |
-| Inventory | IMPLEMENTED | pickup/drop/equip/consumibles/loot verificados + drop atómico server | VERIFIED | CHG-008 corrige drop no-op |
+| Armor | PARTIAL | stats.defense + equip por slots (head ahora cuenta) | CURRENT PROJECT BEHAVIOR | CHG-010 fix head |
+| Inventory | IMPLEMENTED | pickup/drop/equip (sin pérdida si full) + Ground TTL per-map | VERIFIED | CHG-010 equip fix + rooms |
 | Experience | IMPLEMENTED | killMonster centralizada: XP vía sharedXpOnKill→grantXp única, sin duplicación | VERIFIED | CHG-008 curva `lvl*lvl*80+20` unificada |
 | Leveling | IMPLEMENTED | sube stats (HP+8+con*0.5 MP+4+int*0.3), statPoints, skill unlocks Q/W/E | VERIFIED | CHG-001+008 |
 | Death | IMPLEMENTED | -50 oro + 50% de un stack al azar en PvP + criminal -5 rep facción | VERIFIED | CHG-007 |
@@ -30,8 +30,9 @@
 | Cities | IMPLEMENTED | asentamientos con interior, portón norte, servicios NPC | VERIFIED | |
 | Dungeons | IMPLEMENTED | 30 POIs con interiores (dungeon/cave/ruins/mine/shrine), entrada desde mundo, monstruos, salida a mundo | VERIFIED | CHG-005; minimapa marca POIs |
 | Economy | PARTIAL | oro + tiendas NPC + drops + banco + comercio J-J | CURRENT PROJECT BEHAVIOR | CHG-002; sin sumideros fuertes aún |
-| Persistence | IMPLEMENTED | SQLite WAL + busy_timeout, guardado atómico transaccional al desconectar | VERIFIED | CHG-008 savePlayerFull |
-| Movement | IMPLEMENTED | validación server-authority distancia≤1 y throttle 150ms | VERIFIED | CHG-008 |
+| Persistence | IMPLEMENTED | SQLite WAL + busy_timeout, guardado atómico, logger pino | VERIFIED | CHG-008/010 |
+| Movement | IMPLEMENTED | server-authority dist≤1 150ms + rooms (leave/join) | VERIFIED | CHG-008/010 |
+| Networking | IMPLEMENTED | rooms por mapId, chats/daño/loot per-map | VERIFIED | CHG-010 |
 
 ## Status Definitions
 

@@ -96,9 +96,11 @@ function sendMapState(socket: GameSocket, mapId: string) {
   } catch { /* world not ready */ }
 }
 
+import { logger } from "../utils/logger.js";
+
 export function setupHandlers(io: GameServer) {
   io.on("connection", (socket: GameSocket) => {
-    console.log(`[Socket] Connected: ${socket.id}`);
+    logger.debug({ socketId: socket.id }, "Socket connected");
 
     socket.on("auth:register", (data) => {
       try {
@@ -151,15 +153,22 @@ export function setupHandlers(io: GameServer) {
     socket.on("player:move", (data) => {
       const playerId = socket.data.playerId;
       if (!playerId) return;
+      const before = Players.get(playerId);
+      const oldMapId = before?.mapId;
       const result = movePlayer(playerId, data.x, data.y, data.direction);
       if (!result) return;
 
       if (result.teleported) {
         const player = Players.get(playerId);
         if (player) {
+          if (oldMapId && oldMapId !== player.mapId) {
+            socket.leave(oldMapId);
+            io.to(oldMapId).emit("player:leave", playerId);
+          }
           socket.emit("player:update", { ...player } as any);
           sendMapState(socket, player.mapId);
-          io.emit("players:list", getPlayersOnMap(player.mapId));
+          io.to(player.mapId).emit("players:list", getPlayersOnMap(player.mapId));
+          if (oldMapId) io.to(oldMapId).emit("players:list", getPlayersOnMap(oldMapId));
         }
       } else {
         const player = Players.get(playerId);
@@ -215,7 +224,7 @@ export function setupHandlers(io: GameServer) {
       }
 
       const msg = addChatMessage(playerId, player.username, message);
-      io.emit("chat:message", msg);
+      io.to(player.mapId).emit("chat:message", msg);
     });
 
     socket.on("combat:attack", (targetId) => {
@@ -223,13 +232,15 @@ export function setupHandlers(io: GameServer) {
       if (!playerId) return;
       const event = tryAttack(playerId, targetId);
       if (!event) return;
-      io.emit("combat:damage", event);
+      const attacker = Players.get(playerId);
+      if (attacker) io.to(attacker.mapId).emit("combat:damage", event);
+      else io.emit("combat:damage", event);
 
       // Monster killed by melee: broadcast loot drop and level-up (party-shared)
       if (event.xpGained !== undefined) {
         const killer = Players.get(playerId);
         if (killer) {
-          io.emit("groundItems:update", Ground.onMap(killer.mapId));
+          io.to(killer.mapId).emit("groundItems:update", Ground.onMap(killer.mapId));
           // Notify all party members who shared the kill (they already got XP via sharedXpOnKill)
           const party = Party.getPartyOf(playerId);
           if (party) {
@@ -248,7 +259,7 @@ export function setupHandlers(io: GameServer) {
             if (q) socket.emit("quest:state", { questId: q.questId, progress: q.progress, required: q.def.required, completed: q.completed, name: q.def.name });
           }
           if (event.levelUp) {
-            io.emit("chat:message", addSystemMessage(`⚔️ ${killer.username} ha alcanzado el nivel ${killer.level}!`));
+            io.to(killer.mapId).emit("chat:message", addSystemMessage(`⚔️ ${killer.username} ha alcanzado el nivel ${killer.level}!`));
             // Notify killer of levelup (single source via killMonster→sharedXpOnKill→grantXp)
             const newUnlocks = SKILL_UNLOCK_LEVELS[killer.level] ?? [];
             socket.emit("player:levelup", { level: killer.level, statPoints: killer.statPoints, newUnlocks });
@@ -258,15 +269,15 @@ export function setupHandlers(io: GameServer) {
 
       const victim = Players.get(targetId);
       if (victim && victim.stats.hp <= 0) {
-        io.emit("combat:death", { killerId: playerId, victimId: targetId });
+        io.to(victim.mapId).emit("combat:death", { killerId: playerId, victimId: targetId });
         const killer = Players.get(playerId);
-        io.emit("chat:message", addSystemMessage(`${killer?.username} ha derrotado a ${victim.username}!`));
+        io.to(victim.mapId).emit("chat:message", addSystemMessage(`${killer?.username} ha derrotado a ${victim.username}!`));
         io.to(targetId).emit("player:update", { ...victim } as any);
-        io.emit("groundItems:update", Ground.onMap(victim.mapId));
+        io.to(victim.mapId).emit("groundItems:update", Ground.onMap(victim.mapId));
       }
 
-      const attacker = Players.get(playerId);
-      if (attacker) socket.emit("player:update", attacker);
+      const finalAttacker = Players.get(playerId);
+      if (finalAttacker) socket.emit("player:update", finalAttacker);
     });
 
     socket.on("skill:use", (data) => {
@@ -275,25 +286,33 @@ export function setupHandlers(io: GameServer) {
       const event = useSkill(playerId, data.skillId, data.targetId);
       if (!event) return;
 
-      io.emit("skill:effect", event);
+      const casterForSkill = Players.get(playerId);
+      if (casterForSkill) io.to(casterForSkill.mapId).emit("skill:effect", event);
+      else io.emit("skill:effect", event);
 
       if (event.damage && event.damage > 0 && event.targetId) {
-        io.emit("combat:damage", {
+        const caster2 = Players.get(playerId);
+        const dmgMsg = {
           attackerId: playerId, defenderId: event.targetId,
           damage: event.damage, isCrit: false, timestamp: Date.now(),
-        });
+        };
+        if (caster2) io.to(caster2.mapId).emit("combat:damage", dmgMsg);
+        else io.emit("combat:damage", dmgMsg);
       }
 
       if (event.aoe && event.damage) {
-        io.emit("combat:damage", {
+        const caster3 = Players.get(playerId);
+        const aoeMsg = {
           attackerId: playerId, defenderId: playerId,
           damage: 0, isCrit: false, timestamp: Date.now(),
-        });
+        };
+        if (caster3) io.to(caster3.mapId).emit("combat:damage", aoeMsg);
+        else io.emit("combat:damage", aoeMsg);
       }
 
       // Skill kills drop loot too — broadcast it
       const caster = Players.get(playerId);
-      if (caster) io.emit("groundItems:update", Ground.onMap(caster.mapId));
+      if (caster) io.to(caster.mapId).emit("groundItems:update", Ground.onMap(caster.mapId));
 
       const player = Players.get(playerId);
       if (player) socket.emit("player:update", player);
@@ -541,7 +560,7 @@ export function setupHandlers(io: GameServer) {
         const player = Players.get(playerId);
         if (player) {
           socket.emit("player:update", player);
-          io.emit("groundItems:update", Ground.onMap(player.mapId));
+          io.to(player.mapId).emit("groundItems:update", Ground.onMap(player.mapId));
         }
       }
     });
@@ -581,7 +600,7 @@ export function setupHandlers(io: GameServer) {
       const player = Players.get(playerId);
       if (player) {
         socket.emit("player:update", { ...player } as any);
-        io.emit("groundItems:update", Ground.onMap(player.mapId));
+        io.to(player.mapId).emit("groundItems:update", Ground.onMap(player.mapId));
       }
     });
 
@@ -773,7 +792,7 @@ export function setupHandlers(io: GameServer) {
           try { savePlayerFull(removed as any); } catch { savePlayer(removed); saveInventory(playerId, removed.inventory); saveEquipment(playerId, removed.equipment as unknown as Record<string, string | null>); }
         }
       }
-      console.log(`[Socket] Disconnected: ${socket.id}`);
+      logger.debug({ socketId: socket.id }, "Socket disconnected");
     });
   });
 }

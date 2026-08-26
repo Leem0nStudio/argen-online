@@ -66,14 +66,14 @@ export function startGameLoop(io: GameServer) {
           const victim = Players.get(playerId);
           if (victim) {
             if (damage > 0) {
-              io.emit("combat:damage", {
+              io.to(victim.mapId).emit("combat:damage", {
                 attackerId: monsterId, defenderId: playerId,
                 damage, isCrit: false, timestamp: Date.now(),
               });
             }
             if (victim.stats.hp <= 0) {
-              io.emit("combat:death", { killerId: monsterId, victimId: playerId });
-              io.emit("chat:message", addSystemMessage(`Un monstruo ha matado a ${victim.username}!`));
+              io.to(victim.mapId).emit("combat:death", { killerId: monsterId, victimId: playerId });
+              io.to(victim.mapId).emit("chat:message", addSystemMessage(`Un monstruo ha matado a ${victim.username}!`));
             }
           }
         }
@@ -97,13 +97,21 @@ export function startGameLoop(io: GameServer) {
       }
     }
 
-    // ---- Broadcast monster positions every 500ms ----
+    // ---- Broadcast monster positions every 500ms (per-map rooms) ----
     if (tick % MONSTER_BROADCAST_INTERVAL === 0) {
       for (const mapId of ALL_WILDERNESS_MAPS) {
         const mapMonsters = getMonstersAsData(mapId);
         if (mapMonsters.length > 0) {
-          io.emit("monsters:update", mapMonsters);
+          io.to(mapId).emit("monsters:update", mapMonsters);
         }
+      }
+      // Also broadcast for any active map with players (settlements/poi/world) that may have monsters
+      const activeMaps = new Set<string>();
+      for (const p of Players.all()) activeMaps.add(p.mapId);
+      for (const mapId of activeMaps) {
+        if ((ALL_WILDERNESS_MAPS as readonly string[]).includes(mapId)) continue;
+        const ms = getMonstersAsData(mapId);
+        if (ms.length > 0) io.to(mapId).emit("monsters:update", ms);
       }
     }
   }, TICK_RATE_MS);
